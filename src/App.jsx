@@ -86,7 +86,7 @@ export default function App() {
             residentId: resident.id,
             name: resident.name,
             time: new Date().toLocaleTimeString(),
-            message: `Sistem mengesan pembuangan botol pintar.` 
+            message: `REVIVE Smart Bin mengesan pembuangan botol.` 
           };
           setRecentActivity(prev => [newActivity, ...prev].slice(0, 5));
         }
@@ -127,7 +127,7 @@ export default function App() {
       if (loginUser === 'admin' && loginPass === 'smartcity2026') {
         setUserRole('admin');
         setShowLoginModal(false); setLoginUser(''); setLoginPass('');
-      } else alert("Kredensial Pengurus Smart City salah!");
+      } else alert("Kredensial Pengurus salah!");
     } else {
       const residentFound = residents.find(r => r.id.toLowerCase() === loginUser.toLowerCase());
       if (residentFound && loginPass === '1234') {
@@ -263,7 +263,7 @@ export default function App() {
         marks: randomResident.marks + 1,
         totalMarks: currentTotal + 1 
       });
-      alert(`[SIMULASI IoT]: QR Code milik ${randomResident.name} (${randomResident.id}) dikesan di Smart Bin! +1 Botol direkodkan.`);
+      alert(`[SIMULASI IoT]: QR Code milik ${randomResident.name} (${randomResident.id}) dikesan di REVIVE Smart Bin! +1 Botol direkodkan.`);
     } 
     catch (err) {} finally { setIsScanning(false); }
   };
@@ -274,13 +274,13 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans relative">
       
       {/* ========================================== */}
-      // MODAL & POPUPS
+      {/* MODAL & POPUPS                             */}
       {/* ========================================== */}
       {showLoginModal && userRole === 'guest' && (
         <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
           <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-slate-800">Log Masuk Komuniti</h2>
+              <h2 className="text-2xl font-bold text-slate-800">Log Masuk REVIVE</h2>
               <button onClick={() => setShowLoginModal(false)} className="text-slate-400 hover:text-red-500"><X /></button>
             </div>
             
@@ -318,7 +318,7 @@ export default function App() {
               <h3 className="text-xl font-bold text-slate-800">Kod QR Kitar Semula</h3>
               <button onClick={() => setShowQrModal(false)} className="text-slate-400 hover:text-red-500"><X /></button>
             </div>
-            <p className="text-xs text-slate-500 mb-4">Tunjukkan kod QR ini ke kamera pengimbas di Smart Bin semasa ingin membuang botol.</p>
+            <p className="text-xs text-slate-500 mb-4">Tunjukkan kod QR ini ke kamera pengimbas di REVIVE Smart Bin semasa ingin membuang botol.</p>
             
             {/* Auto Generate QR Code menggunakan REST API percuma */}
             <div className="bg-slate-50 p-4 rounded-xl flex justify-center items-center mb-4 border border-dashed border-slate-200">
@@ -392,13 +392,13 @@ export default function App() {
       )}
 
       {/* ========================================== */}
-      // NAVBAR
+      {/* NAVBAR                                     */}
       {/* ========================================== */}
       <nav className="bg-emerald-600 text-white shadow-md sticky top-0 z-40">
         <div className="max-w-7xl mx-auto flex justify-between items-center p-4">
           <div className="flex items-center space-x-2 cursor-pointer" onClick={() => window.scrollTo(0,0)}>
             <Recycle className="h-8 w-8" />
-            <span className="text-2xl font-bold tracking-wider hidden sm:block">MAWAR SMART-RESIDENT</span>
+            <span className="text-2xl font-bold tracking-wider hidden sm:block">REVIVE</span>
           </div>
           
           <div className="flex space-x-1 bg-emerald-700/50 p-1 rounded-lg">
@@ -481,13 +481,13 @@ export default function App() {
         )}
 
         {/* ========================================== */}
-        // VIEW 1: DASHBOARD UTAMA
+        {/* VIEW 1: DASHBOARD UTAMA                    */}
         {/* ========================================== */}
         {activeTab === 'dashboard' && (
           <div className="animate-in fade-in duration-300">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
               <div>
-                <h1 className="text-3xl font-bold text-slate-900">Sistem Pengurusan Kitar Semula Pintar</h1>
+                <h1 className="text-3xl font-bold text-slate-900">Papan Pemuka Pintar REVIVE</h1>
                 <p className="text-slate-500 mt-1">Kadar Komuniti Lestari: 1 Botol = <span className="font-bold text-emerald-600">RM {conversionRate.toFixed(2)}</span></p>
               </div>
               
@@ -596,7 +596,7 @@ export default function App() {
 
               {/* Log Aktiviti Smart Bin (Masa Nyata) */}
               <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-                <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center"><Activity className="mr-2 text-emerald-500" /> Aktiviti IoT Smart Bin</h2>
+                <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center"><Activity className="mr-2 text-emerald-500" /> Aktiviti REVIVE Smart Bin</h2>
                 <div className="space-y-4">
                   {recentActivity.map((act) => (
                     <div key={act.id} className="flex items-start space-x-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
@@ -618,7 +618,7 @@ export default function App() {
         )}
 
         {/* ========================================== */}
-        // VIEW 2: STATISTIK ZON RAMIN
+        {/* VIEW 2: STATISTIK ZON RAMIN                */}
         {/* ========================================== */}
         {activeTab === 'statistik' && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 animate-in fade-in duration-300">
