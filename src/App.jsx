@@ -18,6 +18,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+// Data awal dengan penambahan totalMarks
 const initialStudents = [
   { id: "S001", name: "Fatihah", marks: 102, totalMarks: 102, form: "1", className: "A", redeemRequest: false },
   { id: "S002", name: "Aisyah", marks: 5, totalMarks: 5, form: "1", className: "B", redeemRequest: false },
@@ -78,7 +79,7 @@ export default function App() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   
   const [newStudent, setNewStudent] = useState({ id: '', name: '', form: '', className: '' });
-  const [editStudentData, setEditStudentData] = useState({ id: '', name: '', form: '', className: '', marks: 0 });
+  const [editStudentData, setEditStudentData] = useState({ id: '', name: '', form: '', className: '', marks: 0, totalMarks: 0 });
   const [tempRate, setTempRate] = useState(0.01);
 
   const fileInputRef = useRef(null); 
@@ -113,7 +114,7 @@ export default function App() {
             studentId: student.id,
             name: student.name,
             time: new Date().toLocaleTimeString(),
-            message: `Kemas kini botol.` 
+            message: `Sistem dikesan.` 
           };
           setRecentActivity(prev => [newActivity, ...prev].slice(0, 5));
         }
@@ -173,7 +174,7 @@ export default function App() {
     setFilterClass('');
   };
 
-  // Helper untuk elak ralat jika totalMarks belum wujud dalam db lama
+  // Helper untuk elak ralat jika totalMarks belum wujud dalam db lama, jika tiada ia guna 'marks'
   const getStudentTotal = (student) => student.totalMarks !== undefined ? student.totalMarks : student.marks;
 
   // ==========================================
@@ -185,6 +186,7 @@ export default function App() {
   // Gunakan baki semasa atau seumur hidup berdasarkan tab statistik yang dipilih
   const activeTotalBottles = statViewType === 'semasa' ? totalBottlesCurrent : totalBottlesLifetime;
 
+  // Top student sentiasa dikira dari totalMarks (keseluruhan)
   const topStudent = students.length > 0 ? [...students].sort((a, b) => getStudentTotal(b) - getStudentTotal(a))[0] : null;
 
   const availableForms = ['1', '2', '3', '4', '5', '6'];
@@ -240,8 +242,11 @@ export default function App() {
     const totalRM = (student.marks * conversionRate).toFixed(2);
     if (window.confirm(`Sah luluskan penebusan RM ${totalRM} untuk ${student.name}? \nBaki markah tebusan akan menjadi 0, tetapi rekod statistik keseluruhan tetap kekal.`)) {
       try {
-        // HANYA ditolak marks (baki semasa). totalMarks dikekalkan.
-        await updateDoc(doc(db, 'students', student.id), { marks: 0, redeemRequest: false });
+        // HANYA ditolak marks (baki semasa). totalMarks (keseluruhan) dikekalkan tidak berubah.
+        await updateDoc(doc(db, 'students', student.id), { 
+          marks: 0, 
+          redeemRequest: false 
+        });
         alert(`Berjaya! RM ${totalRM} telah diluluskan untuk ${student.name}.`);
       } catch (err) { alert("Ralat meluluskan mata."); }
     }
@@ -268,7 +273,11 @@ export default function App() {
     e.preventDefault();
     try {
       await updateDoc(doc(db, 'students', editStudentData.id), {
-        name: editStudentData.name, form: editStudentData.form, className: editStudentData.className, marks: parseInt(editStudentData.marks) || 0
+        name: editStudentData.name, 
+        form: editStudentData.form, 
+        className: editStudentData.className, 
+        marks: parseInt(editStudentData.marks) || 0,
+        totalMarks: parseInt(editStudentData.totalMarks) || 0
       });
       setShowEditModal(false); alert("Berjaya dikemas kini!");
     } catch (err) { alert("Gagal mengemas kini."); }
@@ -315,6 +324,7 @@ export default function App() {
     const student = students[Math.floor(Math.random() * students.length)];
     try { 
       const currentTotal = getStudentTotal(student);
+      // Setiap botol baru akan tambah +1 pada baki semasa DAN jumlah keseluruhan
       await updateDoc(doc(db, 'students', student.id), { 
         marks: student.marks + 1,
         totalMarks: currentTotal + 1 
@@ -444,6 +454,7 @@ export default function App() {
                 </select>
               </div>
               <div><label className="text-sm font-bold text-slate-600">Baki Botol Semasa</label><input type="number" required value={editStudentData.marks} onChange={(e) => setEditStudentData({...editStudentData, marks: e.target.value})} className="w-full p-2 border rounded font-bold text-blue-600" /></div>
+              <div><label className="text-sm font-bold text-slate-600">Jumlah Botol Terkumpul (Keseluruhan)</label><input type="number" required value={editStudentData.totalMarks} onChange={(e) => setEditStudentData({...editStudentData, totalMarks: e.target.value})} className="w-full p-2 border rounded font-bold text-emerald-600" /></div>
               <button type="submit" className="w-full bg-blue-600 text-white p-2 rounded font-bold">Kemas Kini</button>
             </form>
           </div>
@@ -491,7 +502,7 @@ export default function App() {
           <div className="bg-green-100 border-l-4 border-green-500 p-4 mb-6 rounded-r-lg shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center animate-in slide-in-from-top-2">
             <div>
               <h3 className="font-bold text-green-800 flex items-center"><Gift className="h-5 w-5 mr-2" /> Tahniah! Anda boleh menebus wang.</h3>
-              <p className="text-green-700 text-sm mt-1">Anda telah mengumpul {loggedInStudent.marks} botol. Nilai tebusan: RM {(loggedInStudent.marks * conversionRate).toFixed(2)}</p>
+              <p className="text-green-700 text-sm mt-1">Anda mempunyai baki {loggedInStudent.marks} botol. Nilai tebusan: RM {(loggedInStudent.marks * conversionRate).toFixed(2)}</p>
             </div>
             <button onClick={requestRedeem} className="mt-3 sm:mt-0 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow">
               Mohon Tebus Sekarang
@@ -536,7 +547,7 @@ export default function App() {
               )}
             </div>
 
-            {/* Stats Grid - Memaparkan Total Keseluruhan Seumur Hidup */}
+            {/* Stats Grid - Memaparkan Total Keseluruhan Seumur Hidup secara default di dashboard */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex items-center"><div className="bg-emerald-100 p-4 rounded-lg text-emerald-600 mr-4"><Trash2 className="h-8 w-8" /></div><div><p className="text-sm text-slate-500 font-medium">Keseluruhan Botol Terumpul</p><h3 className="text-3xl font-bold text-slate-800">{totalBottlesLifetime}</h3></div></div>
               <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex items-center"><div className="bg-amber-100 p-4 rounded-lg text-amber-600 mr-4"><Wallet className="h-8 w-8" /></div><div><p className="text-sm text-slate-500 font-medium">Jumlah Nilai Dana (RM)</p><h3 className="text-3xl font-bold text-slate-800">{(totalBottlesLifetime * conversionRate).toFixed(2)}</h3></div></div>
@@ -593,7 +604,7 @@ export default function App() {
                         <th className="p-4 font-semibold text-slate-600 text-sm">Nama</th>
                         {userRole !== 'student' && <th className="p-4 font-semibold text-slate-600 text-sm">Tg/Kls</th>}
                         <th className="p-4 font-semibold text-slate-600 text-sm text-center" title="Baki botol aktif yang boleh ditebus">Baki Semasa</th>
-                        <th className="p-4 font-semibold text-slate-600 text-sm text-center" title="Jumlah botol seumur hidup">Total Terumpul</th>
+                        <th className="p-4 font-semibold text-slate-600 text-sm text-center" title="Jumlah botol seumur hidup">Total Keseluruhan</th>
                         <th className="p-4 font-semibold text-slate-600 text-sm text-center">Nilai Semasa</th>
                         {userRole === 'admin' && <th className="p-4 font-semibold text-slate-600 text-sm text-center">Tindakan Admin</th>}
                       </tr>
@@ -709,7 +720,7 @@ export default function App() {
             <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-8 flex justify-between items-center">
               <div>
                 <h3 className="font-bold text-emerald-800">
-                  {statViewType === 'keseluruhan' ? '📊 Memaparkan: Jumlah Botol Terumpul (Seumur Hidup)' : '🔋 Memaparkan: Baki Botol Aktif (Belum Ditebus)'}
+                  {statViewType === 'keseluruhan' ? '📊 Memaparkan: Jumlah Botol Terumpul (Keseluruhan)' : '🔋 Memaparkan: Baki Botol Aktif (Belum Ditebus)'}
                 </h3>
                 <p className="text-xs text-emerald-700 mt-0.5">Jumlah botol yang dikesan dalam kategori ini: <b>{activeTotalBottles} Botol</b></p>
               </div>
