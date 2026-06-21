@@ -18,7 +18,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// Tambah totalMarks pada data awal
 const initialStudents = [
   { id: "S001", name: "Fatihah", marks: 102, totalMarks: 102, form: "1", className: "A", redeemRequest: false },
   { id: "S002", name: "Aisyah", marks: 5, totalMarks: 5, form: "1", className: "B", redeemRequest: false },
@@ -51,7 +50,7 @@ export default function App() {
   // ==========================================
   // STATE PENGURUSAN ROLE & LOGIN
   // ==========================================
-  const [userRole, setUserRole] = useState('guest');
+  const [userRole, setUserRole] = useState('guest'); 
   const [loggedInStudent, setLoggedInStudent] = useState(null);
   
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -60,7 +59,8 @@ export default function App() {
   const [loginPass, setLoginPass] = useState('');
   
   // State Paparan
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState('dashboard'); 
+  const [statViewType, setStatViewType] = useState('keseluruhan'); // 'keseluruhan' ATAU 'semasa'
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); 
   
   const [students, setStudents] = useState([]);
@@ -151,8 +151,7 @@ export default function App() {
     e.preventDefault();
     if (loginTab === 'admin') {
       if (loginUser === 'admin' && loginPass === 'abc@12345') {
-        setUserRole('admin');
-        setShowLoginModal(false); setLoginUser(''); setLoginPass('');
+        setUserRole('admin'); setShowLoginModal(false); setLoginUser(''); setLoginPass('');
       } else alert("Username atau Password Admin salah!");
     } else {
       const studentFound = students.find(s => s.id.toLowerCase() === loginUser.toLowerCase());
@@ -174,22 +173,23 @@ export default function App() {
     setFilterClass('');
   };
 
-  // ==========================================
-  // PENGIRAAN STATISTIK & PENAPIS (DIKEMAS KINI MENGGUNAKAN totalMarks)
-  // ==========================================
-  // Fungsi bantuan untuk sentiasa dapatkan totalMarks. Jika data lama takda totalMarks, ia guna marks.
+  // Helper untuk elak ralat jika totalMarks belum wujud dalam db lama
   const getStudentTotal = (student) => student.totalMarks !== undefined ? student.totalMarks : student.marks;
 
-  const totalBottles = students.reduce((sum, student) => sum + getStudentTotal(student), 0);
-  const activeUsers = students.filter(s => getStudentTotal(s) > 0).length;
+  // ==========================================
+  // PENGIRAAN STATISTIK & PENAPIS
+  // ==========================================
+  const totalBottlesCurrent = students.reduce((sum, student) => sum + student.marks, 0);
+  const totalBottlesLifetime = students.reduce((sum, student) => sum + getStudentTotal(student), 0);
   
-  // Cari pelajar top berdasarkan jumlah keseluruhan, bukan baki tebusan
-  const topStudent = students.length > 0 ?
-    [...students].sort((a, b) => getStudentTotal(b) - getStudentTotal(a))[0] : null;
+  // Gunakan baki semasa atau seumur hidup berdasarkan tab statistik yang dipilih
+  const activeTotalBottles = statViewType === 'semasa' ? totalBottlesCurrent : totalBottlesLifetime;
+
+  const topStudent = students.length > 0 ? [...students].sort((a, b) => getStudentTotal(b) - getStudentTotal(a))[0] : null;
 
   const availableForms = ['1', '2', '3', '4', '5', '6'];
   const availableClasses = filterForm ? getClassOptions(filterForm) : ['A', 'B', 'C', 'D', 'E', 'Atas', 'Bawah'];
-  
+
   const filteredStudents = students.filter(student => {
     if (userRole === 'student') {
       return student.form === loggedInStudent.form && student.className === loggedInStudent.className &&
@@ -202,18 +202,26 @@ export default function App() {
     return matchSearch && matchForm && matchClass;
   });
 
+  // Pengiraan Statistik Berkembar (Semasa & Keseluruhan)
   const statsByForm = {};
   students.forEach(student => {
     const form = student.form ? `Tingkatan ${student.form}` : "Lain-lain";
     const className = student.className || "Tiada Kelas";
-    const studentTotal = getStudentTotal(student);
+    const current = student.marks || 0;
+    const lifetime = getStudentTotal(student);
 
-    if (!statsByForm[form]) statsByForm[form] = { total: 0, classes: {} };
-    statsByForm[form].total += studentTotal;
-    if (!statsByForm[form].classes[className]) statsByForm[form].classes[className] = 0;
-    statsByForm[form].classes[className] += studentTotal;
+    if (!statsByForm[form]) {
+      statsByForm[form] = { currentTotal: 0, lifetimeTotal: 0, classes: {} };
+    }
+    statsByForm[form].currentTotal += current;
+    statsByForm[form].lifetimeTotal += lifetime;
+
+    if (!statsByForm[form].classes[className]) {
+      statsByForm[form].classes[className] = { current: 0, lifetime: 0 };
+    }
+    statsByForm[form].classes[className].current += current;
+    statsByForm[form].classes[className].lifetime += lifetime;
   });
-
   const sortedForms = Object.keys(statsByForm).sort();
 
   // ==========================================
@@ -230,9 +238,9 @@ export default function App() {
 
   const handleAcceptRedeem = async (student) => {
     const totalRM = (student.marks * conversionRate).toFixed(2);
-    if (window.confirm(`Sah luluskan penebusan RM ${totalRM} untuk ${student.name}? \nBaki markah akan di-reset kepada 0, tetapi statistik tidak berubah.`)) {
+    if (window.confirm(`Sah luluskan penebusan RM ${totalRM} untuk ${student.name}? \nBaki markah tebusan akan menjadi 0, tetapi rekod statistik keseluruhan tetap kekal.`)) {
       try {
-        // Hanya reset baki markah (marks). totalMarks kekal.
+        // HANYA ditolak marks (baki semasa). totalMarks dikekalkan.
         await updateDoc(doc(db, 'students', student.id), { marks: 0, redeemRequest: false });
         alert(`Berjaya! RM ${totalRM} telah diluluskan untuk ${student.name}.`);
       } catch (err) { alert("Ralat meluluskan mata."); }
@@ -259,9 +267,8 @@ export default function App() {
   const handleUpdateStudent = async (e) => {
     e.preventDefault();
     try {
-      const updatedMarks = parseInt(editStudentData.marks) || 0;
       await updateDoc(doc(db, 'students', editStudentData.id), {
-        name: editStudentData.name, form: editStudentData.form, className: editStudentData.className, marks: updatedMarks
+        name: editStudentData.name, form: editStudentData.form, className: editStudentData.className, marks: parseInt(editStudentData.marks) || 0
       });
       setShowEditModal(false); alert("Berjaya dikemas kini!");
     } catch (err) { alert("Gagal mengemas kini."); }
@@ -271,15 +278,13 @@ export default function App() {
     e.preventDefault();
     try {
       await setDoc(doc(db, 'settings', 'system'), { conversionRate: parseFloat(tempRate) }, { merge: true });
-      setShowSettingsModal(false);
-      alert("Kadar harga berjaya dikemas kini!");
+      setShowSettingsModal(false); alert("Kadar harga berjaya dikemas kini!");
     } catch (err) { alert("Gagal mengemas kini tetapan."); }
   };
 
   const handleDeleteStudent = async (id, name) => {
     if (window.confirm(`Pasti padam rekod ${name}?`)) {
-      try { await deleteDoc(doc(db, 'students', id));
-      } catch (err) { alert("Gagal memadam."); }
+      try { await deleteDoc(doc(db, 'students', id)); } catch (err) { alert("Gagal memadam."); }
     }
   };
 
@@ -304,17 +309,16 @@ export default function App() {
     }
   };
 
-  // KEMAS KINI SIMULASI (Setiap scan, tambah pada baki dan jumlah keseluruhan)
   const simulateESP32Update = async () => {
     if (students.length === 0) return;
     setIsScanning(true);
     const student = students[Math.floor(Math.random() * students.length)];
     try { 
-      const currentTotal = student.totalMarks !== undefined ? student.totalMarks : student.marks;
+      const currentTotal = getStudentTotal(student);
       await updateDoc(doc(db, 'students', student.id), { 
         marks: student.marks + 1,
         totalMarks: currentTotal + 1 
-      });
+      }); 
     } 
     catch (err) {} finally { setIsScanning(false); }
   };
@@ -439,7 +443,7 @@ export default function App() {
                   <option value="" disabled>Kelas</option>{getClassOptions(editStudentData.form).map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
-              <div><label className="text-sm font-bold text-slate-600">Baki Botol (Boleh Tebus)</label><input type="number" required value={editStudentData.marks} onChange={(e) => setEditStudentData({...editStudentData, marks: e.target.value})} className="w-full p-2 border rounded font-bold text-blue-600" /></div>
+              <div><label className="text-sm font-bold text-slate-600">Baki Botol Semasa</label><input type="number" required value={editStudentData.marks} onChange={(e) => setEditStudentData({...editStudentData, marks: e.target.value})} className="w-full p-2 border rounded font-bold text-blue-600" /></div>
               <button type="submit" className="w-full bg-blue-600 text-white p-2 rounded font-bold">Kemas Kini</button>
             </form>
           </div>
@@ -487,7 +491,7 @@ export default function App() {
           <div className="bg-green-100 border-l-4 border-green-500 p-4 mb-6 rounded-r-lg shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center animate-in slide-in-from-top-2">
             <div>
               <h3 className="font-bold text-green-800 flex items-center"><Gift className="h-5 w-5 mr-2" /> Tahniah! Anda boleh menebus wang.</h3>
-              <p className="text-green-700 text-sm mt-1">Anda mempunyai baki {loggedInStudent.marks} botol. Nilai tebusan: RM {(loggedInStudent.marks * conversionRate).toFixed(2)}</p>
+              <p className="text-green-700 text-sm mt-1">Anda telah mengumpul {loggedInStudent.marks} botol. Nilai tebusan: RM {(loggedInStudent.marks * conversionRate).toFixed(2)}</p>
             </div>
             <button onClick={requestRedeem} className="mt-3 sm:mt-0 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow">
               Mohon Tebus Sekarang
@@ -532,10 +536,10 @@ export default function App() {
               )}
             </div>
 
-            {/* Stats Grid */}
+            {/* Stats Grid - Memaparkan Total Keseluruhan Seumur Hidup */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex items-center"><div className="bg-emerald-100 p-4 rounded-lg text-emerald-600 mr-4"><Trash2 className="h-8 w-8" /></div><div><p className="text-sm text-slate-500 font-medium">Keseluruhan Botol</p><h3 className="text-3xl font-bold text-slate-800">{totalBottles}</h3></div></div>
-              <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex items-center"><div className="bg-amber-100 p-4 rounded-lg text-amber-600 mr-4"><Wallet className="h-8 w-8" /></div><div><p className="text-sm text-slate-500 font-medium">Jumlah Nilai (RM)</p><h3 className="text-3xl font-bold text-slate-800">{(totalBottles * conversionRate).toFixed(2)}</h3></div></div>
+              <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex items-center"><div className="bg-emerald-100 p-4 rounded-lg text-emerald-600 mr-4"><Trash2 className="h-8 w-8" /></div><div><p className="text-sm text-slate-500 font-medium">Keseluruhan Botol Terumpul</p><h3 className="text-3xl font-bold text-slate-800">{totalBottlesLifetime}</h3></div></div>
+              <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex items-center"><div className="bg-amber-100 p-4 rounded-lg text-amber-600 mr-4"><Wallet className="h-8 w-8" /></div><div><p className="text-sm text-slate-500 font-medium">Jumlah Nilai Dana (RM)</p><h3 className="text-3xl font-bold text-slate-800">{(totalBottlesLifetime * conversionRate).toFixed(2)}</h3></div></div>
               <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex items-center"><div className="bg-blue-100 p-4 rounded-lg text-blue-600 mr-4"><Trophy className="h-8 w-8" /></div><div><p className="text-sm text-slate-500 font-medium">Penyumbang Teratas</p><h3 className="text-xl font-bold text-slate-800 truncate max-w-[150px]">{topStudent && getStudentTotal(topStudent) > 0 ? topStudent.name : '-'}</h3><p className="text-xs text-blue-600 font-medium">{topStudent && getStudentTotal(topStudent) > 0 ? `Total: ${getStudentTotal(topStudent)} Botol` : 'RM 0.00'}</p></div></div>
             </div>
 
@@ -566,7 +570,7 @@ export default function App() {
                             <option value="">Semua Kelas</option>
                             {availableClasses.map(cls => <option key={cls} value={cls}>{cls}</option>)}
                           </select>
-                           <Filter className="absolute right-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-slate-400 pointer-events-none" />
+                          <Filter className="absolute right-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-slate-400 pointer-events-none" />
                         </div>
                       </>
                     )}
@@ -588,9 +592,9 @@ export default function App() {
                         <th className="p-4 font-semibold text-slate-600 text-sm">ID</th>
                         <th className="p-4 font-semibold text-slate-600 text-sm">Nama</th>
                         {userRole !== 'student' && <th className="p-4 font-semibold text-slate-600 text-sm">Tg/Kls</th>}
-                        <th className="p-4 font-semibold text-slate-600 text-sm text-center" title="Baki boleh tebus">Baki (B)</th>
-                        <th className="p-4 font-semibold text-slate-600 text-sm text-center" title="Jumlah seumur hidup">Total (B)</th>
-                        <th className="p-4 font-semibold text-slate-600 text-sm text-center">Status / Nilai Semasa</th>
+                        <th className="p-4 font-semibold text-slate-600 text-sm text-center" title="Baki botol aktif yang boleh ditebus">Baki Semasa</th>
+                        <th className="p-4 font-semibold text-slate-600 text-sm text-center" title="Jumlah botol seumur hidup">Total Terumpul</th>
+                        <th className="p-4 font-semibold text-slate-600 text-sm text-center">Nilai Semasa</th>
                         {userRole === 'admin' && <th className="p-4 font-semibold text-slate-600 text-sm text-center">Tindakan Admin</th>}
                       </tr>
                     </thead>
@@ -607,15 +611,14 @@ export default function App() {
                               {(userRole === 'student' && student.id === loggedInStudent?.id) && <span className="ml-2 text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">Anda</span>}
                             </td>
                             {userRole !== 'student' && <td className="p-4 text-sm text-slate-600">{student.form || '-'} {student.className || '-'}</td>}
-                            
                             <td className="p-4 text-center font-bold text-slate-700">{student.marks}</td>
-                            <td className="p-4 text-center text-emerald-600 font-bold">{getStudentTotal(student)}</td>
+                            <td className="p-4 text-center font-bold text-emerald-600">{getStudentTotal(student)}</td>
                             
                             <td className="p-4 text-center">
-                               {student.redeemRequest ? (
+                              {student.redeemRequest ? (
                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 animate-pulse">Menunggu Lulus</span>
                               ) : (
-                                <span className="font-bold text-slate-600">RM {(student.marks * conversionRate).toFixed(2)}</span>
+                                <span className="font-bold text-emerald-600">RM {(student.marks * conversionRate).toFixed(2)}</span>
                               )}
                             </td>
                             
@@ -675,10 +678,10 @@ export default function App() {
         {/* ========================================== */}
         {activeTab === 'statistik' && (
           <div className="animate-in fade-in duration-300">
-            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
               <div>
-                <h1 className="text-2xl font-bold text-slate-900">Laporan & Statistik Keseluruhan</h1>
-                <p className="text-slate-500 text-sm mt-1">Sumbangan kitar semula sekolah (Berdasarkan jumlah keseluruhan seumur hidup).</p>
+                <h1 className="text-2xl font-bold text-slate-900">Laporan & Statistik Sekolah</h1>
+                <p className="text-slate-500 text-sm mt-1">Sumbangan kitar semula mengikut kelas dan tingkatan.</p>
               </div>
               <div className="flex items-center space-x-2 bg-slate-50 px-4 py-2 rounded-lg border border-slate-200">
                 <Calendar className="h-5 w-5 text-slate-500" />
@@ -686,27 +689,56 @@ export default function App() {
               </div>
             </div>
 
+            {/* BUTON PILIHAN DUA JENIS STATISTIK */}
+            <div className="flex bg-slate-200 p-1 rounded-xl max-w-md mb-8 shadow-inner">
+              <button 
+                onClick={() => setStatViewType('keseluruhan')} 
+                className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${statViewType === 'keseluruhan' ? 'bg-white shadow text-emerald-600' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                Statistik Keseluruhan (Terumpul)
+              </button>
+              <button 
+                onClick={() => setStatViewType('semasa')} 
+                className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${statViewType === 'semasa' ? 'bg-white shadow text-emerald-600' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                Statistik Semasa (Baki Aktif)
+              </button>
+            </div>
+
+            {/* Kad Ringkasan Berdasarkan Pilihan Tab */}
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-8 flex justify-between items-center">
+              <div>
+                <h3 className="font-bold text-emerald-800">
+                  {statViewType === 'keseluruhan' ? '📊 Memaparkan: Jumlah Botol Terumpul (Seumur Hidup)' : '🔋 Memaparkan: Baki Botol Aktif (Belum Ditebus)'}
+                </h3>
+                <p className="text-xs text-emerald-700 mt-0.5">Jumlah botol yang dikesan dalam kategori ini: <b>{activeTotalBottles} Botol</b></p>
+              </div>
+            </div>
+
+            {/* Grid Statistik Dinamik */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {sortedForms.map(formName => {
-                const formTotal = statsByForm[formName].total;
+                // Tentukan jumlah total form mengikut jenis statistik
+                const formTotal = statViewType === 'semasa' ? statsByForm[formName].currentTotal : statsByForm[formName].lifetimeTotal;
                 const classes = statsByForm[formName].classes;
                 const sortedClasses = Object.keys(classes).sort();
                 
                 return (
                   <div key={formName} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow">
-                    <div className="bg-emerald-50 border-b border-emerald-100 p-4 flex justify-between items-center">
-                      <h3 className="font-bold text-emerald-800 text-lg">{formName}</h3>
+                    <div className="bg-slate-50 border-b border-slate-100 p-4 flex justify-between items-center">
+                      <h3 className="font-bold text-slate-800 text-lg">{formName}</h3>
                       <div className="bg-emerald-600 text-white px-3 py-1 rounded-full text-sm font-bold shadow-sm">{formTotal} Botol</div>
                     </div>
                     <div className="p-4 space-y-4">
                       {sortedClasses.map(cls => {
-                        const classMarks = classes[cls];
+                        // Tentukan jumlah mata kelas mengikut jenis statistik
+                        const classMarks = statViewType === 'semasa' ? classes[cls].current : classes[cls].lifetime;
                         const percentage = formTotal > 0 ? Math.round((classMarks / formTotal) * 100) : 0;
                         return (
                           <div key={cls} className="space-y-1">
                             <div className="flex justify-between text-sm">
-                              <span className="font-medium text-slate-700">{cls}</span>
-                              <span className="text-slate-500 font-bold">{classMarks} <span className="font-normal text-xs">(RM {(classMarks * conversionRate).toFixed(2)})</span></span>
+                              <span className="font-medium text-slate-700">Kelas {cls}</span>
+                              <span className="text-slate-500 font-bold">{classMarks} Botol</span>
                             </div>
                             <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
                               <div className="bg-emerald-500 h-2.5 rounded-full transition-all duration-1000" style={{ width: `${percentage}%` }}></div>
