@@ -1,244 +1,239 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Recycle, LayoutDashboard, BarChart3, User, Plus, Edit2, Trash2, 
-  Settings, Upload, RefreshCw, AlertCircle, CheckCircle, XCircle, Search, Filter 
-} from 'lucide-react';
-import { db } from './firebase'; // Pastikan path ke fail konfigurasi firebase anda betul
-import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { Recycle, Users, Trophy, Activity, Search, QrCode, ArrowRight, Trash2, XCircle, Lock, User, Plus, X, Edit, Trash, Gift, Wallet, BarChart3, LayoutDashboard, Calendar, Filter, Upload, Settings, Bell, CheckCircle, Clock, Home } from 'lucide-react';
+import { initializeApp } from 'firebase/app';
+import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 
-const initialStudents = [
-  { id: "S001", name: "Fatihah", marks: 102, totalMarks: 102, form: "1", className: "A", redeemRequest: false },
-  { id: "S002", name: "Irfan", marks: 13, totalMarks: 155, form: "1", className: "B", redeemRequest: true },
-  { id: "S003", name: "Aisyah", marks: 44, totalMarks: 44, form: "2", className: "A", redeemRequest: false },
-  { id: "S004", name: "Haziq", marks: 145, totalMarks: 245, form: "3", className: "C", redeemRequest: false },
-  { id: "S005", name: "Amira", marks: 21, totalMarks: 121, form: "4", className: "B", redeemRequest: false },
-  { id: "S006", name: "Zul", marks: 167, totalMarks: 167, form: "5", className: "A", redeemRequest: false },
-  { id: "S007", name: "Sarah", marks: 0, totalMarks: 89, form: "6", className: "Atas", redeemRequest: false }
+// ==========================================
+// 1. KONFIGURASI FIREBASE
+// ==========================================
+const firebaseConfig = {
+  apiKey: "AIzaSyA93ckSUA4i5gLYoKgt-gQv-IjwQGAOEGs",
+  authDomain: "revive-165c1.firebaseapp.com",
+  projectId: "revive-165c1",
+  storageBucket: "revive-165c1.firebasestorage.app",
+  messagingSenderId: "2820905150",
+  appId: "1:2820905150:web:15cecb416aec550f5066ef"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// Data awal contoh penduduk Taman Mawar
+const initialResidents = [
+  { id: "TM001", name: "Ahmad Khairul", marks: 45, totalMarks: 45, ramin: "1", houseNo: "No. 12", redeemRequest: false },
+  { id: "TM002", name: "Siti Aminah", marks: 120, totalMarks: 120, ramin: "1", houseNo: "No. 5B", redeemRequest: false },
+  { id: "TM003", name: "Ramasamy", marks: 15, totalMarks: 15, ramin: "2", houseNo: "No. 44", redeemRequest: false },
+  { id: "TM004", name: "Chong Wei", marks: 80, totalMarks: 80, ramin: "3", houseNo: "No. 101", redeemRequest: false },
+  { id: "TM005", name: "Norazlan", marks: 8, totalMarks: 8, ramin: "6", houseNo: "No. 3A", redeemRequest: false }
 ];
 
 export default function App() {
   // ==========================================
-  // STATE MANAGEMENT
+  // STATE PENGURUSAN ROLE & LOGIN
   // ==========================================
-  const [userRole, setUserRole] = useState('guest'); // 'guest' | 'student' | 'admin'
-  const [loggedInStudent, setLoggedInStudent] = useState(null);
+  const [userRole, setUserRole] = useState('guest'); // guest, resident, admin
+  const [loggedInResident, setLoggedInResident] = useState(null);
   
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [loginTab, setLoginTab] = useState('student'); 
+  const [showQrModal, setShowQrModal] = useState(false); // Modal untuk Papar QR Code Penduduk
+  const [loginTab, setLoginTab] = useState('resident'); 
   const [loginUser, setLoginUser] = useState('');
   const [loginPass, setLoginPass] = useState('');
   
+  // State Paparan
   const [activeTab, setActiveTab] = useState('dashboard'); 
   const [statViewType, setStatViewType] = useState('keseluruhan');
-  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); 
   
-  const [students, setStudents] = useState([]);
-  const [isLoading, setIsLoading] = useState(true); // Memastikan sistem memuat turun data dahulu
-  
+  const [residents, setResidents] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
   const [isScanning, setIsScanning] = useState(false);
-  const [conversionRate, setConversionRate] = useState(0.01);
+  const [conversionRate, setConversionRate] = useState(0.10); // Default RM0.10 sebotol untuk komuniti
   
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterForm, setFilterForm] = useState('');
-  const [filterClass, setFilterClass] = useState('');
+  const [filterRamin, setFilterRamin] = useState('');
   const [selectedIds, setSelectedIds] = useState([]); 
   
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   
-  const [newStudent, setNewStudent] = useState({ id: '', name: '', form: '', className: '' });
-  const [editStudentData, setEditStudentData] = useState({ id: '', name: '', form: '', className: '', marks: 0, totalMarks: 0 });
-  const [tempRate, setTempRate] = useState(0.01);
+  const [newResident, setNewResident] = useState({ id: '', name: '', ramin: '', houseNo: '' });
+  const [editResidentData, setEditResidentData] = useState({ id: '', name: '', ramin: '', houseNo: '', marks: 0, totalMarks: 0 });
+  const [tempRate, setTempRate] = useState(0.10);
 
   const fileInputRef = useRef(null); 
 
-  const getClassOptions = (form) => {
-    if (['1', '2', '3'].includes(form)) return ['A', 'B', 'C', 'D', 'E'];
-    if (['4', '5'].includes(form)) return ['A', 'B', 'C', 'D'];
-    if (form === '6') return ['Atas', 'Bawah'];
-    return [];
-  };
-
   // ==========================================
-  // FIREBASE REAL-TIME SYNC
+  // BACA DATA DARI FIREBASE (Collection: residents)
   // ==========================================
   useEffect(() => {
     const settingsRef = doc(db, 'settings', 'system');
     const unsubSettings = onSnapshot(settingsRef, (docSnap) => {
       if (docSnap.exists()) {
-        setConversionRate(docSnap.data().conversionRate || 0.01);
+        setConversionRate(docSnap.data().conversionRate || 0.10);
       } else {
-        setDoc(settingsRef, { conversionRate: 0.01 }); 
+        setDoc(settingsRef, { conversionRate: 0.10 }); 
       }
     });
 
-    const studentsRef = collection(db, 'students'); 
-    const unsubStudents = onSnapshot(studentsRef, (snapshot) => {
+    const residentsRef = collection(db, 'residents'); 
+    const unsubResidents = onSnapshot(residentsRef, (snapshot) => {
       snapshot.docChanges().forEach((change) => {
         if (change.type === "modified") {
-          const student = change.doc.data();
+          const resident = change.doc.data();
           const newActivity = {
             id: Date.now() + Math.random(),
-            studentId: student.id,
-            name: student.name,
+            residentId: resident.id,
+            name: resident.name,
             time: new Date().toLocaleTimeString(),
-            message: `Sistem dikesan mengemas kini botol.` 
+            message: `REVIVE Smart Bin mengesan pembuangan botol.` 
           };
           setRecentActivity(prev => [newActivity, ...prev].slice(0, 5));
         }
       });
 
       if (!snapshot.empty) {
-        const updatedStudents = [];
-        snapshot.forEach(doc => updatedStudents.push(doc.data()));
-        updatedStudents.sort((a, b) => a.id.localeCompare(b.id));
-        setStudents(updatedStudents);
+        const updatedResidents = [];
+        snapshot.forEach(doc => updatedResidents.push(doc.data()));
+        updatedResidents.sort((a, b) => a.id.localeCompare(b.id));
+        setResidents(updatedResidents);
       } else {
-        initialStudents.forEach(async (s) => {
-          await setDoc(doc(studentsRef, s.id), s);
+        initialResidents.forEach(async (r) => {
+          await setDoc(doc(residentsRef, r.id), r);
         });
       }
-      setIsLoading(false);
-    }, (error) => {
-      console.error("Firebase Error:", error);
-      setIsLoading(false);
     });
     
     return () => {
       unsubSettings();
-      unsubStudents();
+      unsubResidents();
     };
   }, []);
-
+  
+  // Update session penduduk jika data Firebase berubah
   useEffect(() => {
-    if (userRole === 'student' && loggedInStudent) {
-      const freshData = students.find(s => s.id === loggedInStudent.id);
-      if (freshData) setLoggedInStudent(freshData);
+    if (userRole === 'resident' && loggedInResident) {
+      const freshData = residents.find(r => r.id === loggedInResident.id);
+      if (freshData) setLoggedInResident(freshData);
     }
-  }, [students]);
+  }, [residents]);
 
   // ==========================================
-  // LOGIC & UTILITIES
+  // LOGIK LOGIN
   // ==========================================
   const handleLogin = (e) => {
     e.preventDefault();
     if (loginTab === 'admin') {
-      if (loginUser === 'admin' && loginPass === 'abc@12345') {
+      if (loginUser === 'admin' && loginPass === 'smartcity2026') {
         setUserRole('admin');
         setShowLoginModal(false); setLoginUser(''); setLoginPass('');
-      } else alert("Username atau Password Admin salah!");
+      } else alert("Kredensial Pengurus salah!");
     } else {
-      const studentFound = students.find(s => s.id.toLowerCase() === loginUser.toLowerCase());
-      if (studentFound && loginPass === '1234') {
-        setUserRole('student');
-        setLoggedInStudent(studentFound);
-        setShowLoginModal(false); setLoginUser(''); setLoginPass('');
-        setFilterForm(studentFound.form);
-        setFilterClass(studentFound.className);
-      } else alert("ID Pelajar tidak dijumpai atau Password salah (Gunakan 1234)");
+      const residentFound = residents.find(r => r.id.toLowerCase() === loginUser.toLowerCase());
+      if (residentFound && loginPass === '1234') {
+        setUserRole('resident');
+        setLoggedInResident(residentFound);
+        setShowLoginModal(false);
+        setLoginUser(''); setLoginPass('');
+        setFilterRamin(residentFound.ramin);
+      } else alert("ID Penduduk tidak dijumpai atau Kata Laluan salah (Gunakan default: 1234)");
     }
   };
 
   const handleLogout = () => {
     setUserRole('guest');
-    setLoggedInStudent(null);
-    setFilterForm('');
-    setFilterClass('');
+    setLoggedInResident(null);
+    setFilterRamin('');
   };
 
-  const getStudentTotal = (student) => student.totalMarks !== undefined ? student.totalMarks : student.marks;
-
-  const totalBottlesCurrent = students.reduce((sum, student) => sum + student.marks, 0);
-  const totalBottlesLifetime = students.reduce((sum, student) => sum + getStudentTotal(student), 0);
-  
-  const activeTotalBottles = statViewType === 'semasa' ? totalBottlesCurrent : totalBottlesLifetime;
-
-  const topStudent = students.length > 0 ? [...students].sort((a, b) => getStudentTotal(b) - getStudentTotal(a))[0] : null;
-
-  const availableForms = ['1', '2', '3', '4', '5', '6'];
-  const availableClasses = filterForm ? getClassOptions(filterForm) : ['A', 'B', 'C', 'D', 'E', 'Atas', 'Bawah'];
-  
-  const filteredStudents = students.filter(student => {
-    if (userRole === 'student') {
-      return student.form === loggedInStudent.form && student.className === loggedInStudent.className &&
-             (student.name.toLowerCase().includes(searchTerm.toLowerCase()) || student.id.toLowerCase().includes(searchTerm.toLowerCase()));
-    }
-    const matchSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) || student.id.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchForm = filterForm ? student.form === filterForm : true;
-    const matchClass = filterClass ? student.className === filterClass : true;
-    return matchSearch && matchForm && matchClass;
-  });
-
-  const statsByForm = {};
-  students.forEach(student => {
-    const form = student.form ? `Tingkatan ${student.form}` : "Lain-lain";
-    const className = student.className || "Tiada Kelas";
-    const current = student.marks || 0;
-    const lifetime = getStudentTotal(student);
-
-    if (!statsByForm[form]) {
-      statsByForm[form] = { currentTotal: 0, lifetimeTotal: 0, classes: {} };
-    }
-    statsByForm[form].currentTotal += current;
-    statsByForm[form].lifetimeTotal += lifetime;
-
-    if (!statsByForm[form].classes[className]) {
-      statsByForm[form].classes[className] = { current: 0, lifetime: 0 };
-    }
-    statsByForm[form].classes[className].current += current;
-    statsByForm[form].classes[className].lifetime += lifetime;
-  });
-  const sortedForms = Object.keys(statsByForm).sort();
+  const getResidentTotal = (resident) => resident.totalMarks !== undefined ? resident.totalMarks : resident.marks;
 
   // ==========================================
-  // ACTIONS (CRUD & OPERATIONS)
+  // PENGIRAAN STATISTIK KOMUNITI
+  // ==========================================
+  const totalBottlesCurrent = residents.reduce((sum, r) => sum + r.marks, 0);
+  const totalBottlesLifetime = residents.reduce((sum, r) => sum + getResidentTotal(r), 0);
+  
+  const topResident = residents.length > 0 ? [...residents].sort((a, b) => getResidentTotal(b) - getResidentTotal(a))[0] : null;
+
+  const availableRamins = ['1', '2', '3', '4', '5', '6'];
+
+  const filteredResidents = residents.filter(resident => {
+    if (userRole === 'resident') {
+      return resident.ramin === loggedInResident.ramin && 
+             (resident.name.toLowerCase().includes(searchTerm.toLowerCase()) || resident.id.toLowerCase().includes(searchTerm.toLowerCase()));
+    }
+    const matchSearch = resident.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                        resident.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        resident.houseNo.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchRamin = filterRamin ? resident.ramin === filterRamin : true;
+    return matchSearch && matchRamin;
+  });
+
+  // Pengiraan Data mengikut Sektor Ramin
+  const statsByRamin = {};
+  residents.forEach(r => {
+    const raminKey = `Ramin ${r.ramin}`;
+    const current = r.marks || 0;
+    const lifetime = getResidentTotal(r);
+
+    if (!statsByRamin[raminKey]) {
+      statsByRamin[raminKey] = { currentTotal: 0, lifetimeTotal: 0 };
+    }
+    statsByRamin[raminKey].currentTotal += current;
+    statsByRamin[raminKey].lifetimeTotal += lifetime;
+  });
+
+  // ==========================================
+  // FUNGSI PENGURUSAN & REWARD
   // ==========================================
   const requestRedeem = async () => {
-    if (window.confirm("Adakah anda pasti mahu memohon penebusan wang? Admin akan menyemak permohonan ini.")) {
+    if (window.confirm("Hantar permohonan penebusan insentif tunai hijau anda kepada pihak pengurusan?")) {
       try {
-        await updateDoc(doc(db, 'students', loggedInStudent.id), { redeemRequest: true });
-        alert("Permohonan dihantar! Sila tunggu kelulusan Admin.");
-      } catch (err) { alert("Ralat menghantar permohonan."); }
+        await updateDoc(doc(db, 'residents', loggedInResident.id), { redeemRequest: true });
+        alert("Permohonan berjaya dihantar! Sila tunggu kelulusan.");
+      } catch (err) { alert("Ralat sistem menghantar permohonan."); }
     }
   };
 
-  const handleAcceptRedeem = async (student) => {
-    const totalRM = (student.marks * conversionRate).toFixed(2);
-    if (window.confirm(`Sah luluskan penebusan RM ${totalRM} untuk ${student.name}?\n\nBaki Semasa akan menjadi 0, Statistik Keseluruhan akan KEKAL.`)) {
+  const handleAcceptRedeem = async (resident) => {
+    const totalRM = (resident.marks * conversionRate).toFixed(2);
+    if (window.confirm(`Sahkan pembayaran RM ${totalRM} kepada ${resident.name} (${resident.houseNo})?\n\nBaki ganjaran semasa akan dikosongkan.`)) {
       try {
-        await updateDoc(doc(db, 'students', student.id), { marks: 0, redeemRequest: false });
-        alert(`Berjaya! RM ${totalRM} telah diluluskan untuk ${student.name}.`);
-      } catch (err) { alert("Ralat meluluskan mata."); }
+        await updateDoc(doc(db, 'residents', resident.id), { marks: 0, redeemRequest: false });
+        alert(`Pembayaran RM ${totalRM} berjaya disahkan!`);
+      } catch (err) { alert("Ralat pengesahan ganjaran."); }
     }
   };
 
-  const handleCancelRedeem = async (studentId) => {
+  const handleCancelRedeem = async (residentId) => {
     try {
-      await updateDoc(doc(db, 'students', studentId), { redeemRequest: false });
-    } catch (err) { alert("Gagal batalkan permohonan."); }
+      await updateDoc(doc(db, 'residents', residentId), { redeemRequest: false });
+    } catch (err) { alert("Gagal membatalkan permohonan."); }
   };
 
-  const handleAddStudent = async (e) => {
+  const handleAddResident = async (e) => {
     e.preventDefault();
-    if (!newStudent.id || !newStudent.name || !newStudent.form || !newStudent.className) return alert("Sila isi semua maklumat!");
+    if (!newResident.id || !newResident.name || !newResident.ramin || !newResident.houseNo) return alert("Sila lengkapkan profil penduduk!");
     try {
-      await setDoc(doc(db, 'students', newStudent.id.toUpperCase()), {
-        id: newStudent.id.toUpperCase(), name: newStudent.name, form: newStudent.form, className: newStudent.className, marks: 0, totalMarks: 0, redeemRequest: false
+      await setDoc(doc(db, 'residents', newResident.id.toUpperCase()), {
+        id: newResident.id.toUpperCase(), name: newResident.name, ramin: newResident.ramin, houseNo: newResident.houseNo, marks: 0, totalMarks: 0, redeemRequest: false
       });
-      setShowAddModal(false); setNewStudent({ id: '', name: '', form: '', className: '' }); alert("Berjaya ditambah!");
-    } catch (err) { alert("Gagal menambah pelajar."); }
+      setShowAddModal(false); setNewResident({ id: '', name: '', ramin: '', houseNo: '' }); alert("Penduduk berjaya didaftarkan!");
+    } catch (err) { alert("Gagal menambah penduduk."); }
   };
 
-  const handleUpdateStudent = async (e) => {
+  const handleUpdateResident = async (e) => {
     e.preventDefault();
     try {
-      await updateDoc(doc(db, 'students', editStudentData.id), {
-        name: editStudentData.name, form: editStudentData.form, className: editStudentData.className, 
-        marks: parseInt(editStudentData.marks) || 0, totalMarks: parseInt(editStudentData.totalMarks) || 0
+      await updateDoc(doc(db, 'residents', editResidentData.id), {
+        name: editResidentData.name, 
+        ramin: editResidentData.ramin, 
+        houseNo: editResidentData.houseNo, 
+        marks: parseInt(editResidentData.marks) || 0,
+        totalMarks: parseInt(editResidentData.totalMarks) || 0
       });
-      setShowEditModal(false); alert("Berjaya dikemas kini!");
+      setShowEditModal(false); alert("Profil penduduk dikemas kini!");
     } catch (err) { alert("Gagal mengemas kini."); }
   };
 
@@ -246,547 +241,422 @@ export default function App() {
     e.preventDefault();
     try {
       await setDoc(doc(db, 'settings', 'system'), { conversionRate: parseFloat(tempRate) }, { merge: true });
-      setShowSettingsModal(false); alert("Kadar harga berjaya dikemas kini!");
+      setShowSettingsModal(false);
+      alert("Kadar ganjaran kitar semula dikemas kini!");
     } catch (err) { alert("Gagal mengemas kini tetapan."); }
   };
 
-  const handleDeleteStudent = async (id, name) => {
-    if (window.confirm(`Pasti padam rekod ${name}?`)) {
-      try { await deleteDoc(doc(db, 'students', id)); } catch (err) { alert("Gagal memadam."); }
+  const handleDeleteResident = async (id, name) => {
+    if (window.confirm(`Padam terus rekod penduduk ${name}?`)) {
+      try { await deleteDoc(doc(db, 'residents', id)); } catch (err) { alert("Gagal memadam."); }
     }
   };
 
-  const handleSelectAll = (e) => {
-    if (e.target.checked) setSelectedIds(filteredStudents.map(s => s.id));
-    else setSelectedIds([]);
-  };
-
-  const handleSelectRow = (id) => {
-    setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
-  };
-
-  const handleBulkDelete = async () => {
-    if (window.confirm(`Adakah anda pasti mahu memadam ${selectedIds.length} rekod serentak?`)) {
-      try {
-        for (const id of selectedIds) await deleteDoc(doc(db, 'students', id));
-        setSelectedIds([]); alert("Rekod terpilih berjaya dipadam!");
-      } catch (error) { alert("Ralat memadam rekod."); }
-    }
-  };
-
-  const simulateESP32Update = async () => {
-    if (students.length === 0) return;
+  // Simulasi jika kod QR penduduk diimbas oleh hardware IoT (ESP32 Smart Bin)
+  const simulateESP32Scan = async () => {
+    if (residents.length === 0) return;
     setIsScanning(true);
-    const student = students[Math.floor(Math.random() * students.length)];
+    const randomResident = residents[Math.floor(Math.random() * residents.length)];
     try { 
-      const currentTotal = getStudentTotal(student);
-      await updateDoc(doc(db, 'students', student.id), { marks: student.marks + 1, totalMarks: currentTotal + 1 });
-    } catch (err) {} finally { setIsScanning(false); }
+      const currentTotal = getResidentTotal(randomResident);
+      await updateDoc(doc(db, 'residents', randomResident.id), { 
+        marks: randomResident.marks + 1,
+        totalMarks: currentTotal + 1 
+      });
+      alert(`[SIMULASI IoT]: QR Code milik ${randomResident.name} (${randomResident.id}) dikesan di REVIVE Smart Bin! +1 Botol direkodkan.`);
+    } 
+    catch (err) {} finally { setIsScanning(false); }
   };
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const text = event.target.result;
-      const rows = text.split('\n');
-      let successCount = 0;
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i].trim();
-        if (!row) continue;
-        const cols = row.split(','); 
-        if (cols.length >= 2 && cols[0].toLowerCase().trim() !== 'id' && cols[0].toLowerCase().trim() !== 'id pelajar') {
-          const id = cols[0].trim().toUpperCase();
-          const name = cols[1].trim();
-          const form = cols[2] ? cols[2].trim() : '';
-          const className = cols[3] ? cols[3].trim() : '';
-          if (id && name) {
-            await setDoc(doc(db, 'students', id), { id, name, form, className, marks: 0, totalMarks: 0, redeemRequest: false });
-            successCount++;
-          }
-        }
-      }
-      alert(`${successCount} rekod pelajar berjaya dimuat naik!`);
-      e.target.value = null; 
-    };
-    reader.readAsText(file);
-  };
-
-  const pendingRequestsCount = students.filter(s => s.redeemRequest).length;
-
-  // ==========================================
-  // VIEW RENDER INTERCEPT (LOADING WINDOW)
-  // ==========================================
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
-        <p className="mt-4 text-slate-600 font-medium animate-pulse">Memuat turun data REVIVE...</p>
-      </div>
-    );
-  }
+  const pendingRequestsCount = residents.filter(r => r.redeemRequest).length;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans flex flex-col justify-between relative">
+    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans relative">
       
-      {/* WRAPPER KANDUNGAN ATAS */}
-      <div className="flex-grow">
-        {/* STICKY NAVBAR */}
-        <nav className="bg-emerald-600 text-white shadow-md sticky top-0 z-40">
-          <div className="max-w-7xl mx-auto flex justify-between items-center p-4">
-            <div className="flex items-center space-x-2 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-              <Recycle className="h-8 w-8 animate-spin-slow" />
-              <span className="text-2xl font-bold tracking-wider hidden sm:block">REVIVE</span>
+      {/* ========================================== */}
+      {/* MODAL & POPUPS                             */}
+      {/* ========================================== */}
+      {showLoginModal && userRole === 'guest' && (
+        <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold text-slate-800">Log Masuk REVIVE</h2>
+              <button onClick={() => setShowLoginModal(false)} className="text-slate-400 hover:text-red-500"><X /></button>
             </div>
             
-            <div className="flex space-x-1 bg-emerald-700/50 p-1 rounded-lg">
-              <button onClick={() => setActiveTab('dashboard')} className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center transition-all ${activeTab === 'dashboard' ? 'bg-white text-emerald-700 shadow-sm' : 'text-emerald-50 hover:text-white'}`}>
-                <LayoutDashboard className="w-4 h-4 sm:mr-2" /> <span className="hidden sm:inline">Papan Pemuka</span>
-              </button>
-              <button onClick={() => setActiveTab('statistik')} className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center transition-all ${activeTab === 'statistik' ? 'bg-white text-emerald-700 shadow-sm' : 'text-emerald-50 hover:text-white'}`}>
-                <BarChart3 className="w-4 h-4 sm:mr-2" /> <span className="hidden sm:inline">Statistik Tingkatan</span>
-              </button>
+            <div className="flex mb-6 bg-slate-100 p-1 rounded-lg">
+              <button onClick={() => setLoginTab('resident')} className={`flex-1 py-2 text-sm font-bold rounded-md ${loginTab === 'resident' ? 'bg-white shadow text-emerald-600' : 'text-slate-500'}`}>Penduduk</button>
+              <button onClick={() => setLoginTab('admin')} className={`flex-1 py-2 text-sm font-bold rounded-md ${loginTab === 'admin' ? 'bg-white shadow text-emerald-600' : 'text-slate-500'}`}>Pengurus Taman</button>
             </div>
 
-            <div className="flex items-center">
-              {userRole !== 'guest' ? (
-                <div className="flex items-center space-x-3">
-                  <span className="hidden md:block text-sm font-medium bg-emerald-800 px-3 py-1 rounded-full border border-emerald-500/30">
-                    Hi, {userRole === 'admin' ? '🔥 Admin' : `👤 ${loggedInStudent?.name}`}
-                  </span>
-                  <button onClick={handleLogout} className="bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded text-sm font-bold shadow-sm transition-all">Keluar</button>
+            <form onSubmit={handleLogin} className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium mb-1">{loginTab === 'resident' ? 'ID Penduduk (Cth: TM001)' : 'Username Admin'}</label>
+                <div className="relative">
+                  <User className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+                  <input type="text" required value={loginUser} onChange={(e) => setLoginUser(e.target.value)} className="w-full pl-10 p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500" />
                 </div>
-              ) : (
-                <button onClick={() => setShowLoginModal(true)} className="bg-emerald-800 hover:bg-emerald-900 px-4 py-2 rounded text-sm font-bold flex items-center transition-colors"><User className="h-4 w-4 mr-2" /> Log Masuk</button>
-              )}
-            </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Kata Laluan {loginTab === 'resident' && <span className="text-slate-400 font-normal">(Default: 1234)</span>}</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+                  <input type="password" required value={loginPass} onChange={(e) => setLoginPass(e.target.value)} className="w-full pl-10 p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500" />
+                </div>
+              </div>
+              <button type="submit" className="w-full bg-emerald-600 text-white font-bold py-3 rounded-lg hover:bg-emerald-700">Masuk</button>
+            </form>
           </div>
-        </nav>
+        </div>
+      )}
 
-        {/* MAIN BODY LAYOUT */}
-        <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-          {activeTab === 'dashboard' ? (
-            <div className="space-y-6">
-              
-              {/* NOTIFIKASI PERMOHONAN PENEBUSAN BAGI ADMIN */}
-              {userRole === 'admin' && pendingRequestsCount > 0 && (
-                <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-xl flex items-start space-x-3 shadow-sm animate-pulse">
-                  <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
-                  <div className="flex-1">
-                    <p className="text-sm text-amber-800 font-semibold">Terdapat {pendingRequestsCount} permohonan penebusan baki ganjaran tertunggak yang memerlukan tindakan anda.</p>
-                  </div>
-                </div>
-              )}
-
-              {/* MAKLUMAT RINGKASAN PENGGUNA TERLOG-MASUK (STUDENT ROLE) */}
-              {userRole === 'student' && loggedInStudent && (
-                <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-6 rounded-2xl shadow-md flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                  <div>
-                    <span className="bg-emerald-700/60 text-emerald-100 text-xs px-2.5 py-1 rounded-full border border-emerald-500/20 font-mono tracking-wider">{loggedInStudent.id}</span>
-                    <h2 className="text-2xl font-bold mt-1">{loggedInStudent.name}</h2>
-                    <p className="text-emerald-100 text-sm mt-0.5">Tingkatan {loggedInStudent.form} {loggedInStudent.className}</p>
-                  </div>
-                  <div className="flex gap-4 w-full md:w-auto">
-                    <div className="bg-white/10 px-4 py-2 rounded-xl flex-1 md:flex-initial">
-                      <span className="text-xs text-emerald-100 block">Baki Semasa</span>
-                      <strong className="text-xl font-bold">{loggedInStudent.marks} <span className="text-xs font-normal">Botol</span></strong>
-                    </div>
-                    <div className="bg-white/10 px-4 py-2 rounded-xl flex-1 md:flex-initial">
-                      <span className="text-xs text-emerald-100 block">Nilai Wang</span>
-                      <strong className="text-xl font-bold">RM {(loggedInStudent.marks * conversionRate).toFixed(2)}</strong>
-                    </div>
-                    {loggedInStudent.marks > 0 ? (
-                      loggedInStudent.redeemRequest ? (
-                        <button disabled className="bg-amber-500 text-white px-5 py-2 rounded-xl text-sm font-bold shadow flex items-center"><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Diproses</button>
-                      ) : (
-                        <button onClick={requestRedeem} className="bg-white text-emerald-700 hover:bg-emerald-50 px-5 py-2 rounded-xl text-sm font-bold shadow transition-all">Tebus Wang</button>
-                      )
-                    ) : (
-                      <button disabled className="bg-slate-300 text-slate-500 px-5 py-2 rounded-xl text-sm font-bold cursor-not-allowed">Tiada Baki</button>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* ROW 3 KAD STATISTIK UTAMA */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                  <div className="text-sm font-medium text-slate-500 uppercase tracking-wider">Kitar Semula Semasa</div>
-                  <div className="text-3xl font-bold text-slate-900 mt-2 flex items-baseline">{totalBottlesCurrent} <span className="text-sm font-normal text-slate-400 ml-2">unit botol aktif</span></div>
-                </div>
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                  <div className="text-sm font-medium text-slate-500 uppercase tracking-wider">Jumlah Nilai Ganjaran</div>
-                  <div className="text-3xl font-bold text-emerald-600 mt-2">RM {(totalBottlesCurrent * conversionRate).toFixed(2)}</div>
-                </div>
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                  <div className="text-sm font-medium text-slate-500 uppercase tracking-wider">Kitar Semula Keseluruhan (Lifetime)</div>
-                  <div className="text-3xl font-bold text-slate-900 mt-2 flex items-baseline">{totalBottlesLifetime} <span className="text-sm font-normal text-slate-400 ml-2">unit terkumpul</span></div>
-                </div>
-              </div>
-
-              {/* GRID OPERASI: SENARAI JADUAL DAN AKTIVITI LIVE */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-                <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                  
-                  {/* ALAT CARIAN, TAPISAN & BUTANG KENDALIAN TABEL */}
-                  <div className="p-4 bg-slate-50/60 border-b border-slate-100 space-y-3">
-                    <div className="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center">
-                      <div className="relative flex-1">
-                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                        <input type="text" placeholder="Cari nama atau ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all bg-white" />
-                      </div>
-                      
-                      {userRole !== 'student' && (
-                        <div className="flex gap-2">
-                          <select value={filterForm} onChange={(e) => { setFilterForm(e.target.value); setFilterClass(''); }} className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none">
-                            <option value="">Semua Ting.</option>
-                            {availableForms.map(f => <option key={f} value={f}>Ting. {f}</option>)}
-                          </select>
-                          <select value={filterClass} onChange={(e) => setFilterClass(e.target.value)} className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none">
-                            <option value="">Semua Kelas</option>
-                            {availableClasses.map(c => <option key={c} value={c}>Kelas {c}</option>)}
-                          </select>
-                        </div>
-                      )}
-                    </div>
-
-                    {userRole === 'admin' && (
-                      <div className="flex flex-wrap justify-between items-center gap-2 pt-2 border-t border-slate-100">
-                        <div className="flex gap-2">
-                          <button onClick={() => setShowAddModal(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-sm font-semibold flex items-center transition-all"><Plus className="w-4 h-4 mr-1.5" /> Tambah</button>
-                          <button onClick={() => fileInputRef.current.click()} className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl text-sm font-semibold flex items-center transition-all"><Upload className="w-4 h-4 mr-1.5" /> Fail CSV</button>
-                          <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv" className="hidden" />
-                          <button onClick={() => { setTempRate(conversionRate); setShowSettingsModal(true); }} className="bg-slate-100 hover:bg-slate-200 text-slate-700 p-2 rounded-xl transition-all"><Settings className="w-4 h-4" /></button>
-                        </div>
-                        {selectedIds.length > 0 && (
-                          <button onClick={handleBulkDelete} className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-xl text-sm font-bold flex items-center border border-red-200 transition-all"><Trash2 className="w-4 h-4 mr-1.5" /> Padam Terpilih ({selectedIds.length})</button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* RUANGAN UTAMA JADUAL REKOD PENDUDUK/PELAJAR */}
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold text-xs uppercase tracking-wider">
-                          {userRole === 'admin' && (
-                            <th className="p-4 w-12"><input type="checkbox" checked={selectedIds.length === filteredStudents.length && filteredStudents.length > 0} onChange={handleSelectAll} className="rounded text-emerald-600 focus:ring-emerald-500" /></th>
-                          )}
-                          <th className="p-4">ID / Nama</th>
-                          <th className="p-4 hidden sm:table-cell">Kelas</th>
-                          <th className="p-4 text-right">Baki Botol (Nilai)</th>
-                          <th className="p-4 text-right hidden md:table-cell">Keseluruhan</th>
-                          {userRole === 'admin' && <th className="p-4 text-center">Tindakan / Status</th>}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 text-sm">
-                        {filteredStudents.length > 0 ? (
-                          filteredStudents.map((student) => {
-                            const totalRM = (student.marks * conversionRate).toFixed(2);
-                            return (
-                              <tr key={student.id} className={`hover:bg-slate-50/80 transition-colors ${student.redeemRequest ? 'bg-amber-50/40 hover:bg-amber-50/60' : ''}`}>
-                                {userRole === 'admin' && (
-                                  <td className="p-4"><input type="checkbox" checked={selectedIds.includes(student.id)} onChange={() => handleSelectRow(student.id)} className="rounded text-emerald-600 focus:ring-emerald-500" /></td>
-                                )}
-                                <td className="p-4">
-                                  <div className="font-mono text-xs text-slate-400">{student.id}</div>
-                                  <div className="font-semibold text-slate-800 mt-0.5">{student.name}</div>
-                                  <div className="sm:hidden text-xs text-slate-400 mt-0.5">Ting. {student.form} {student.className}</div>
-                                </td>
-                                <td className="p-4 text-slate-600 hidden sm:table-cell">Tingkatan {student.form} {student.className}</td>
-                                <td className="p-4 text-right font-medium">
-                                  <span className="text-slate-900">{student.marks} unit</span>
-                                  <div className="text-xs text-emerald-600 font-semibold mt-0.5">RM {totalRM}</div>
-                                </td>
-                                <td className="p-4 text-right text-slate-500 hidden md:table-cell font-mono">{getStudentTotal(student)}</td>
-                                {userRole === 'admin' && (
-                                  <td className="p-4">
-                                    <div className="flex items-center justify-center space-x-1">
-                                      {student.redeemRequest ? (
-                                        <div className="flex items-center space-x-1 bg-white p-1 rounded-lg border border-amber-200 shadow-sm">
-                                          <button onClick={() => handleAcceptRedeem(student)} className="bg-emerald-600 hover:bg-emerald-700 text-white p-1.5 rounded-md text-xs font-bold transition-all" title="Luluskan Wang"><CheckCircle className="w-3.5 h-3.5" /></button>
-                                          <button onClick={() => handleCancelRedeem(student.id)} className="bg-slate-100 hover:bg-slate-200 text-slate-500 p-1.5 rounded-md text-xs font-bold transition-all" title="Batal"><XCircle className="w-3.5 h-3.5" /></button>
-                                        </div>
-                                      ) : (
-                                        <>
-                                          <button onClick={() => { setEditStudentData({ ...student, totalMarks: getStudentTotal(student) }); setShowEditModal(true); }} className="text-slate-400 hover:text-emerald-600 p-1.5 rounded-lg hover:bg-slate-100 transition-all"><Edit2 className="w-4 h-4" /></button>
-                                          <button onClick={() => handleDeleteStudent(student.id, student.name)} className="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-slate-100 transition-all"><Trash2 className="w-4 h-4" /></button>
-                                        </>
-                                      )}
-                                    </div>
-                                  </td>
-                                )}
-                              </tr>
-                            );
-                          })
-                        ) : (
-                          <tr><td colSpan={6} className="p-8 text-center text-slate-400">Tiada rekod pelajar atau perumahan yang dijumpai.</td></tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* SISI KANAN: SIMULASI HARDWARE DAN AKTIVITI TERKINI */}
-                <div className="space-y-6">
-                  <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-                    <h3 className="font-bold text-slate-800 text-base">Ujian Sistem (Simulasi IoT)</h3>
-                    <p className="text-xs text-slate-500 mt-1">Simulasi isyarat mikrokontroler ESP32 dari tong kitar semula fizikal apabila mendeteksi botol masuk.</p>
-                    <button onClick={simulateESP32Update} disabled={isScanning} className="w-full mt-4 bg-slate-900 hover:bg-slate-800 text-white py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center transition-all disabled:opacity-50">{isScanning ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Memproses Input...</> : <><RefreshCw className="w-4 h-4 mr-2" /> Masukkan 1 Botol Rawak</>}</button>
-                  </div>
-
-                  <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-                    <h3 className="font-bold text-slate-800 text-base">Log Aktiviti Semasa</h3>
-                    <div className="mt-4 space-y-3">
-                      {recentActivity.length > 0 ? (
-                        recentActivity.map((act) => (
-                          <div key={act.id} className="flex items-start space-x-2.5 p-2 rounded-xl bg-slate-50 border border-slate-100/50 text-xs">
-                            <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-mono font-bold mt-0.5">{act.time}</span>
-                            <div className="flex-1">
-                              <strong className="text-slate-700 block">{act.name} ({act.studentId})</strong>
-                              <span className="text-slate-500">{act.message}</span>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-xs text-slate-400 py-4 text-center">Menunggu kemas kini data dari perkakasan IoT...</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-              </div>
+      {/* MODAL AUTO-GENERATE QR CODE UNTUK PENDUDUK */}
+      {showQrModal && userRole === 'resident' && loggedInResident && (
+        <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-sm text-center animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-slate-800">Kod QR Kitar Semula</h3>
+              <button onClick={() => setShowQrModal(false)} className="text-slate-400 hover:text-red-500"><X /></button>
             </div>
-          ) : (
+            <p className="text-xs text-slate-500 mb-4">Tunjukkan kod QR ini ke kamera pengimbas di REVIVE Smart Bin semasa ingin membuang botol.</p>
             
-            /* ==========================================
-               KANDUNGAN HALAMAN STATISTIK KEMAJUAN
-               ========================================== */
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-                <div>
-                  <h2 className="text-xl font-bold text-slate-800">Analisis Kemajuan Mengikut Tingkatan</h2>
-                  <p className="text-xs text-slate-400 mt-0.5">Carta statistik pembuangan mengikut kumpulan tingkatan berdaftar.</p>
-                </div>
-                <div className="flex bg-slate-100 p-1 rounded-xl self-start">
-                  <button onClick={() => setStatViewType('keseluruhan')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${statViewType === 'keseluruhan' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}>Keseluruhan</button>
-                  <button onClick={() => setStatViewType('semasa')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${statViewType === 'semasa' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}>Baki Semasa</button>
-                </div>
-              </div>
-
-              {sortedForms.length > 0 ? (
-                <div className="space-y-5">
-                  {sortedForms.map(formKey => {
-                    const formData = statsByForm[formKey];
-                    const count = statViewType === 'semasa' ? formData.currentTotal : formData.lifetimeTotal;
-                    const percentage = activeTotalBottles > 0 ? (count / activeTotalBottles) * 100 : 0;
-                    return (
-                      <div key={formKey} className="space-y-1.5">
-                        <div className="flex justify-between text-sm font-semibold text-slate-700">
-                          <span>{formKey}</span>
-                          <span className="font-mono text-slate-900">{count} Botol ({percentage.toFixed(1)}%)</span>
-                        </div>
-                        <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
-                          <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: `${percentage}%` }}></div>
-                        </div>
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1">
-                          {Object.keys(formData.classes).sort().map(clsKey => {
-                            const clsData = formData.classes[clsKey];
-                            const clsCount = statViewType === 'semasa' ? clsData.current : clsData.lifetime;
-                            return (
-                              <span key={clsKey} className="text-xs text-slate-400">Kelas {clsKey}: <strong className="text-slate-600 font-mono">{clsCount}</strong></span>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-sm text-slate-400 py-6 text-center">Tiada data yang mencukupi untuk menjana visualisasi graf.</p>
-              )}
+            {/* Auto Generate QR Code menggunakan REST API percuma */}
+            <div className="bg-slate-50 p-4 rounded-xl flex justify-center items-center mb-4 border border-dashed border-slate-200">
+              <img 
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${loggedInResident.id}`} 
+                alt="Resident Unique QR" 
+                className="w-48 h-48 shadow-sm rounded-lg"
+              />
             </div>
-          )}
-        </main>
-      </div>
-
-      {/* ==========================================
-         MODAL WINDOW POPUPS CONTROL SECTION
-         ========================================== */}
-      
-      {/* 1. MODAL WINDOW: LOG MASUK */}
-      {showLoginModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-sm w-full p-6 relative">
-            <h3 className="text-lg font-bold text-slate-800">Akses Sistem REVIVE</h3>
-            <div className="flex bg-slate-100 p-1 rounded-xl mt-4">
-              <button onClick={() => setLoginTab('student')} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${loginTab === 'student' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}>Pelajar / Penduduk</button>
-              <button onClick={() => setLoginTab('admin')} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${loginTab === 'admin' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}>Pengurus Admin</button>
+            
+            <div className="text-sm font-bold text-slate-700 bg-slate-100 py-2 rounded-lg mb-1">
+              {loggedInResident.name}
             </div>
-            <form onSubmit={handleLogin} className="space-y-4 mt-4">
-              <div>
-                <label className="text-xs text-slate-500 font-medium block">Username / ID Pelajar</label>
-                <input type="text" required value={loginUser} onChange={(e) => setLoginUser(e.target.value)} className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500" placeholder={loginTab === 'admin' ? 'Contoh: admin' : 'Contoh: S001'} />
-              </div>
-              <div>
-                <label className="text-xs text-slate-500 font-medium block">Kata Laluan (Password)</label>
-                <input type="password" required value={loginPass} onChange={(e) => setLoginPass(e.target.value)} className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500" placeholder="••••" />
-              </div>
-              <div className="flex gap-2 pt-2">
-                <button type="button" onClick={() => setShowLoginModal(false)} className="flex-1 border border-slate-200 hover:bg-slate-50 py-2 rounded-xl text-sm font-semibold transition-all">Batal</button>
-                <button type="submit" className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-xl text-sm font-semibold shadow transition-all">Masuk</button>
-              </div>
-            </form>
+            <p className="text-xs text-emerald-600 font-bold tracking-wider">{loggedInResident.id}</p>
+            <p className="text-xs text-slate-400 mt-2">Ramin {loggedInResident.ramin} — {loggedInResident.houseNo}</p>
           </div>
         </div>
       )}
 
-      {/* 2. MODAL WINDOW: TAMBAH PELAJAR BARU */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
-            <h3 className="text-lg font-bold text-slate-800">Daftar Ahli Komuniti Baru</h3>
-            <form onSubmit={handleAddStudent} className="space-y-4 mt-4">
-              <div>
-                <label className="text-xs text-slate-500 font-medium block">ID Pelajar / Kad Unik</label>
-                <input type="text" required value={newStudent.id} onChange={(e) => setNewStudent({...newStudent, id: e.target.value})} className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none" placeholder="Contoh: S008" />
-              </div>
-              <div>
-                <label className="text-xs text-slate-500 font-medium block">Nama Penuh</label>
-                <input type="text" required value={newStudent.name} onChange={(e) => setNewStudent({...newStudent, name: e.target.value})} className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none" placeholder="Masukkan nama penuh" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-slate-500 font-medium block">Tingkatan</label>
-                  <select required value={newStudent.form} onChange={(e) => setNewStudent({...newStudent, form: e.target.value, className: ''})} className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none bg-white">
-                    <option value="">Pilih...</option>
-                    {availableForms.map(f => <option key={f} value={f}>Tingkatan {f}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-slate-500 font-medium block">Kelas</label>
-                  <select required value={newStudent.className} onChange={(e) => setNewStudent({...newStudent, className: e.target.value})} disabled={!newStudent.form} className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none bg-white disabled:opacity-50">
-                    <option value="">Pilih...</option>
-                    {getClassOptions(newStudent.form).map(c => <option key={c} value={c}>Kelas {c}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="flex gap-2 pt-2">
-                <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 border border-slate-200 hover:bg-slate-50 py-2 rounded-xl text-sm font-semibold">Batal</button>
-                <button type="submit" className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-xl text-sm font-semibold shadow">Simpan</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 3. MODAL WINDOW: EDIT DATA DATA PELAJAR */}
-      {showEditModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
-            <h3 className="text-lg font-bold text-slate-800">Kemaskini Profil & Mata</h3>
-            <form onSubmit={handleUpdateStudent} className="space-y-4 mt-4">
-              <div>
-                <label className="text-xs text-slate-500 font-mono block">ID Pelajar: {editStudentData.id}</label>
-                <input type="text" required value={editStudentData.name} onChange={(e) => setEditStudentData({...editStudentData, name: e.target.value})} className="w-full mt-2 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-slate-500 font-medium block">Tingkatan</label>
-                  <select required value={editStudentData.form} onChange={(e) => setEditStudentData({...editStudentData, form: e.target.value, className: ''})} className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none bg-white">
-                    {availableForms.map(f => <option key={f} value={f}>Tingkatan {f}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-slate-500 font-medium block">Kelas</label>
-                  <select required value={editStudentData.className} onChange={(e) => setEditStudentData({...editStudentData, className: e.target.value})} className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none bg-white">
-                    {getClassOptions(editStudentData.form).map(c => <option key={c} value={c}>Kelas {c}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-slate-500 font-medium block">Baki Semasa (Botol)</label>
-                  <input type="number" required value={editStudentData.marks} onChange={(e) => setEditStudentData({...editStudentData, marks: parseInt(e.target.value) || 0})} className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none" />
-                </div>
-                <div>
-                  <label className="text-xs text-slate-500 font-medium block">Keseluruhan (Lifetime)</label>
-                  <input type="number" required value={editStudentData.totalMarks} onChange={(e) => setEditStudentData({...editStudentData, totalMarks: parseInt(e.target.value) || 0})} className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none" />
-                </div>
-              </div>
-              <div className="flex gap-2 pt-2">
-                <button type="button" onClick={() => setShowEditModal(false)} className="flex-1 border border-slate-200 hover:bg-slate-50 py-2 rounded-xl text-sm font-semibold">Batal</button>
-                <button type="submit" className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-xl text-sm font-semibold shadow">Kemaskini</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 4. MODAL WINDOW: TETAPAN SISTEM (KADAR HARGA GANJARAN) */}
       {showSettingsModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
-            <h3 className="text-lg font-bold text-slate-800">Ketetapan Nilai Mata Ganjaran</h3>
-            <p className="text-xs text-slate-500 mt-1">Sediakan nilai pertukaran wang (Ringgit Malaysia) bagi setiap satu unit botol yang dikitar semula.</p>
-            <form onSubmit={handleUpdateSettings} className="space-y-4 mt-4">
-              <div>
-                <label className="text-xs text-slate-500 font-medium block">Kadar Nilai (RM / Unit Botol)</label>
-                <input type="number" step="0.001" required value={tempRate} onChange={(e) => setTempRate(e.target.value)} className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500" />
-              </div>
-              <div className="flex gap-2 pt-2">
-                <button type="button" onClick={() => setShowSettingsModal(false)} className="flex-1 border border-slate-200 hover:bg-slate-50 py-2 rounded-xl text-sm font-semibold">Batal</button>
-                <button type="submit" className="flex-1 bg-slate-900 hover:bg-slate-800 text-white py-2 rounded-xl text-sm font-semibold shadow">Kemas Kini</button>
-              </div>
+        <div className="fixed inset-0 bg-slate-900 bg-opacity-50 flex justify-center items-center z-50 p-4">
+          <div className="bg-white p-6 rounded-xl w-full max-w-sm">
+            <div className="flex justify-between mb-4"><h3 className="font-bold text-xl">Tetapan Nilai Botol</h3><button onClick={() => setShowSettingsModal(false)}><X/></button></div>
+            <form onSubmit={handleUpdateSettings} className="space-y-4">
+              <div><label className="block text-sm font-bold text-slate-700">1 Botol = RM</label><input type="number" step="0.01" min="0" required value={tempRate} onChange={(e) => setTempRate(e.target.value)} className="w-full p-2 border rounded font-bold text-emerald-600 focus:ring-2 focus:ring-emerald-500" /></div>
+              <button type="submit" className="w-full bg-emerald-600 text-white p-2 rounded font-bold">Simpan</button>
             </form>
           </div>
         </div>
       )}
 
-      {/* ==========================================
-         🆕 FOOTER COMPONENT (Sentiasa Di Bawah Sekali)
-         ========================================== */}
-      <footer className="bg-slate-900 text-slate-400 text-sm border-t border-slate-800 mt-12 w-full">
-        <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            
-            {/* Info Kiri */}
-            <div className="flex items-center space-x-3">
-              <div className="bg-emerald-600 text-white p-2 rounded-lg">
-                <Recycle className="h-5 w-5" />
+      {showAddModal && (
+        <div className="fixed inset-0 bg-slate-900 bg-opacity-50 flex justify-center items-center z-50 p-4">
+          <div className="bg-white p-6 rounded-xl w-full max-w-md">
+            <div className="flex justify-between mb-4"><h3 className="font-bold text-xl">Tambah Akaun Penduduk</h3><button onClick={() => setShowAddModal(false)}><X/></button></div>
+            <form onSubmit={handleAddResident} className="space-y-4">
+              <input type="text" placeholder="ID Penduduk (Cth: TM105)" required value={newResident.id} onChange={(e) => setNewResident({...newResident, id: e.target.value})} className="w-full p-2 border rounded" />
+              <input type="text" placeholder="Nama Penuh Ketua Rumah / Penduduk" required value={newResident.name} onChange={(e) => setNewResident({...newResident, name: e.target.value})} className="w-full p-2 border rounded" />
+              <div className="grid grid-cols-2 gap-4">
+                <select required value={newResident.ramin} onChange={(e) => setNewResident({...newResident, ramin: e.target.value})} className="w-full p-2 border rounded bg-white">
+                  <option value="" disabled>Pilih Ramin</option>
+                  {availableRamins.map(r => <option key={r} value={r}>Ramin {r}</option>)}
+                </select>
+                <input type="text" placeholder="No. Rumah (Cth: No. 42)" required value={newResident.houseNo} onChange={(e) => setNewResident({...newResident, houseNo: e.target.value})} className="w-full p-2 border rounded" />
               </div>
-              <div>
-                <h4 className="text-white font-semibold tracking-wide">REVIVE</h4>
-                <p className="text-xs text-slate-500">Smart City Taman Mawar • IoT Integrated System</p>
-              </div>
-            </div>
-
-            {/* Indikator Status & Data Tengah */}
-            <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs">
-              <div className="flex items-center space-x-1.5">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>Pangkalan Data: <strong className="text-slate-300">Firebase Terhubung</strong></span>
-              </div>
-              <div>
-                <span>Jumlah Botol Terkumpul: <strong className="text-slate-200">{totalBottlesLifetime}</strong></span>
-              </div>
-              <div>
-                <span>Kadar Harga: <strong className="text-emerald-400">RM {conversionRate}/botol</strong></span>
-              </div>
-            </div>
-
-            {/* Hak Cipta Kanan */}
-            <div className="text-center md:text-right text-xs text-slate-500">
-              <p>&copy; {new Date().getFullYear()} REVIVE System. Hak Cipta Terpelihara.</p>
-              <p className="mt-0.5">Dikuasakan oleh React, Tailwind & IoT</p>
-            </div>
-
+              <button type="submit" className="w-full bg-blue-600 text-white p-2 rounded font-bold">Simpan Akaun</button>
+            </form>
           </div>
         </div>
-      </footer>
+      )}
 
+      {showEditModal && (
+        <div className="fixed inset-0 bg-slate-900 bg-opacity-50 flex justify-center items-center z-50 p-4">
+          <div className="bg-white p-6 rounded-xl w-full max-w-md">
+            <div className="flex justify-between mb-4"><h3 className="font-bold text-xl">Edit Akaun Penduduk</h3><button onClick={() => setShowEditModal(false)}><X/></button></div>
+            <form onSubmit={handleUpdateResident} className="space-y-4">
+              <input type="text" disabled value={editResidentData.id} className="w-full p-2 border bg-slate-100 rounded text-slate-500" />
+              <input type="text" required value={editResidentData.name} onChange={(e) => setEditResidentData({...editResidentData, name: e.target.value})} className="w-full p-2 border rounded" />
+              <div className="grid grid-cols-2 gap-4">
+                <select required value={editResidentData.ramin} onChange={(e) => setEditResidentData({...editResidentData, ramin: e.target.value})} className="w-full p-2 border rounded bg-white">
+                  {availableRamins.map(r => <option key={r} value={r}>Ramin {r}</option>)}
+                </select>
+                <input type="text" required value={editResidentData.houseNo} onChange={(e) => setEditResidentData({...editResidentData, houseNo: e.target.value})} className="w-full p-2 border rounded" />
+              </div>
+              <div><label className="text-sm font-bold text-slate-600">Baki Botol Semasa</label><input type="number" required value={editResidentData.marks} onChange={(e) => setEditResidentData({...editResidentData, marks: e.target.value})} className="w-full p-2 border rounded font-bold text-blue-600" /></div>
+              <div><label className="text-sm font-bold text-slate-600">Jumlah Kitaran Seumur Hidup</label><input type="number" required value={editResidentData.totalMarks} onChange={(e) => setEditResidentData({...editResidentData, totalMarks: e.target.value})} className="w-full p-2 border rounded font-bold text-emerald-600" /></div>
+              <button type="submit" className="w-full bg-blue-600 text-white p-2 rounded font-bold">Kemas Kini</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================== */}
+      {/* NAVBAR                                     */}
+      {/* ========================================== */}
+      <nav className="bg-emerald-600 text-white shadow-md sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto flex justify-between items-center p-4">
+          <div className="flex items-center space-x-2 cursor-pointer" onClick={() => window.scrollTo(0,0)}>
+            <Recycle className="h-8 w-8" />
+            <span className="text-2xl font-bold tracking-wider hidden sm:block">REVIVE</span>
+          </div>
+          
+          <div className="flex space-x-1 bg-emerald-700/50 p-1 rounded-lg">
+            <button onClick={() => setActiveTab('dashboard')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center ${activeTab === 'dashboard' ? 'bg-white text-emerald-700 shadow-sm' : 'text-emerald-50 hover:text-white'}`}>
+              <LayoutDashboard className="w-4 h-4 sm:mr-2" /> <span className="hidden sm:inline">Papan Pemuka</span>
+            </button>
+            <button onClick={() => setActiveTab('statistik')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center ${activeTab === 'statistik' ? 'bg-white text-emerald-700 shadow-sm' : 'text-emerald-50 hover:text-white'}`}>
+              <BarChart3 className="w-4 h-4 sm:mr-2" /> <span className="hidden sm:inline">Zon Statistik</span>
+            </button>
+          </div>
+
+          <div className="flex items-center">
+            {userRole !== 'guest' ? (
+              <div className="flex items-center space-x-3">
+                <span className="hidden md:block text-sm font-medium bg-emerald-800 px-3 py-1 rounded-full">
+                  Hi, {userRole === 'admin' ? 'Pengurus Sektor' : loggedInResident.name}
+                </span>
+                <button onClick={handleLogout} className="bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded text-sm font-bold transition-colors">Keluar</button>
+              </div>
+            ) : (
+              <button onClick={() => setShowLoginModal(true)} className="bg-emerald-800 hover:bg-emerald-900 px-4 py-2 rounded text-sm font-bold flex items-center transition-colors"><User className="h-4 w-4 mr-2"/> Log Masuk</button>
+            )}
+          </div>
+        </div>
+      </nav>
+
+      <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+
+        {/* INTERFACE KHAS UNTUK PENDUDUK YANG LOG MASUK */}
+        {userRole === 'resident' && loggedInResident && (
+          <div className="bg-white border border-slate-200 p-6 mb-8 rounded-2xl shadow-sm grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+            <div>
+              <h2 className="text-xl font-bold text-slate-800 flex items-center"><Home className="mr-2 text-emerald-600" /> Akaun Kediaman Anda</h2>
+              <p className="text-slate-500 text-sm mt-1">Sektor: <span className="font-bold text-slate-700">Ramin {loggedInResident.ramin}</span> | No. Rumah: <span className="font-bold text-slate-700">{loggedInResident.houseNo}</span></p>
+              
+              <div className="mt-4 flex space-x-4">
+                <div>
+                  <p className="text-xs text-slate-400 font-medium uppercase">Baki Mata Ganjaran</p>
+                  <p className="text-2xl font-bold text-blue-600">{loggedInResident.marks} Botol</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 font-medium uppercase">Nilai Tunai Hijau</p>
+                  <p className="text-2xl font-bold text-emerald-600">RM {(loggedInResident.marks * conversionRate).toFixed(2)}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {/* BUTANG UTAMA UNTUK DISPLAY QR CODE SEMASA NAK BUANG BOTOL */}
+              <button 
+                onClick={() => setShowQrModal(true)} 
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center space-x-2 shadow-md transition"
+              >
+                <QrCode className="h-5 w-5" />
+                <span>Papar Kod QR Penduduk</span>
+              </button>
+
+              {loggedInResident.marks >= 10 && !loggedInResident.redeemRequest ? (
+                <button onClick={requestRedeem} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-2 px-4 rounded-lg text-sm transition">
+                  Mohon Tebus Tunai Ganjaran
+                </button>
+              ) : loggedInResident.redeemRequest ? (
+                <div className="bg-amber-50 text-amber-700 text-xs p-3 rounded-lg border border-amber-200 flex items-center">
+                  <Clock className="w-4 h-4 mr-2 shrink-0 animate-pulse" />
+                  <span>Permohonan Penebusan Insentif Sedang Disemak oleh Pengurus Komuniti.</span>
+                </div>
+              ) : (
+                <p className="text-xs text-center text-slate-400">Kumpul minimum 10 botol untuk tebus insentif tunai.</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* NOTIFIKASI REQUEST UNTUK ADMIN */}
+        {userRole === 'admin' && pendingRequestsCount > 0 && (
+          <div className="bg-blue-100 border-l-4 border-blue-500 p-4 mb-6 rounded-r-lg shadow-sm">
+            <h3 className="font-bold text-blue-800 flex items-center"><Bell className="h-5 w-5 mr-2" /> Notifikasi Pengurusan Komuniti</h3>
+            <p className="text-blue-700 text-sm mt-1">Terdapat <b>{pendingRequestsCount}</b> tuntutan ganjaran tunai hijau daripada penduduk yang sedia untuk diproses.</p>
+          </div>
+        )}
+
+        {/* ========================================== */}
+        {/* VIEW 1: DASHBOARD UTAMA                    */}
+        {/* ========================================== */}
+        {activeTab === 'dashboard' && (
+          <div className="animate-in fade-in duration-300">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+              <div>
+                <h1 className="text-3xl font-bold text-slate-900">Papan Pemuka Pintar REVIVE</h1>
+                <p className="text-slate-500 mt-1">Kadar Komuniti Lestari: 1 Botol = <span className="font-bold text-emerald-600">RM {conversionRate.toFixed(2)}</span></p>
+              </div>
+              
+              {userRole === 'admin' && (
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => { setTempRate(conversionRate); setShowSettingsModal(true); }} className="flex items-center px-4 py-2 rounded-lg font-medium shadow-sm bg-slate-200 text-slate-700 hover:bg-slate-300"><Settings className="mr-2 h-4 w-4" /> Tetapan Nilai</button>
+                  <button onClick={() => setShowAddModal(true)} className="flex items-center px-4 py-2 rounded-lg font-medium shadow-sm bg-blue-600 text-white hover:bg-blue-700"><Plus className="mr-2 h-4 w-4" /> Tambah Penduduk</button>
+                  <button onClick={simulateESP32Scan} disabled={isScanning} className="flex items-center px-4 py-2 rounded-lg font-medium shadow-sm bg-emerald-600 text-white hover:bg-emerald-700">
+                    <QrCode className="mr-2 h-4 w-4" /> Simulasi Imbas IoT Smart Bin
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Grid Statistik Utama */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex items-center">
+                <div className="bg-emerald-100 p-4 rounded-lg text-emerald-600 mr-4"><Trash2 className="h-8 w-8" /></div>
+                <div><p className="text-sm text-slate-500 font-medium">Jumlah Botol Dikumpul (Taman Mawar)</p><h3 className="text-3xl font-bold text-slate-800">{totalBottlesLifetime}</h3></div>
+              </div>
+              <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex items-center">
+                <div className="bg-amber-100 p-4 rounded-lg text-amber-600 mr-4"><Wallet className="h-8 w-8" /></div>
+                <div><p className="text-sm text-slate-500 font-medium">Jumlah Edaran Dana Lestari (RM)</p><h3 className="text-3xl font-bold text-slate-800">{(totalBottlesLifetime * conversionRate).toFixed(2)}</h3></div>
+              </div>
+              <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex items-center">
+                <div className="bg-blue-100 p-4 rounded-lg text-blue-600 mr-4"><Trophy className="h-8 w-8" /></div>
+                <div>
+                  <p className="text-sm text-slate-500 font-medium">Hero Lestari Taman Mawar</p>
+                  <h3 className="text-lg font-bold text-slate-800 truncate max-w-[170px]">{topResident && getResidentTotal(topResident) > 0 ? topResident.name : '-'}</h3>
+                  <p className="text-xs text-blue-600 font-medium">{topResident && getResidentTotal(topResident) > 0 ? `Total: ${getResidentTotal(topResident)} Botol (${topResident.houseNo})` : ''}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Jadual Penduduk */}
+              <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <h2 className="text-xl font-bold text-slate-800 shrink-0">
+                    {userRole === 'resident' ? `Kedudukan Sektor Ramin ${loggedInResident.ramin}` : 'Pangkalan Data Penduduk'}
+                  </h2>
+                  <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+                    {userRole !== 'resident' && (
+                      <div className="relative">
+                        <select value={filterRamin} onChange={(e) => setFilterRamin(e.target.value)} className="w-full appearance-none border border-slate-200 rounded-lg pl-3 pr-8 py-2 text-sm focus:ring-emerald-500 bg-slate-50">
+                          <option value="">Semua Ramin</option>
+                          {availableRamins.map(r => <option key={r} value={r}>Ramin {r}</option>)}
+                        </select>
+                        <Filter className="absolute right-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-slate-400 pointer-events-none" />
+                      </div>
+                    )}
+                    <div className="relative flex-1 sm:w-64">
+                      <input type="text" placeholder="Cari nama, ID, atau No. rumah..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full border border-slate-200 rounded-lg pl-9 pr-4 py-2 text-sm focus:ring-emerald-500" />
+                      <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-400 text-xs font-semibold uppercase tracking-wider border-b border-slate-100">
+                        <th className="p-4">ID Penduduk</th>
+                        <th className="p-4">Nama</th>
+                        <th className="p-4">Sektor Ramin</th>
+                        <th className="p-4">No. Rumah</th>
+                        <th className="p-4 text-center">Baki Mata</th>
+                        <th className="p-4 text-center">Total Kitaran</th>
+                        {userRole === 'admin' && <th className="p-4 text-center">Tindakan</th>}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-sm">
+                      {filteredResidents.map((r) => (
+                        <tr key={r.id} className={`hover:bg-slate-50/80 transition-colors ${r.redeemRequest ? 'bg-amber-50/50' : ''}`}>
+                          <td className="p-4 font-mono font-bold text-slate-600">{r.id}</td>
+                          <td className="p-4 font-medium text-slate-800">
+                            <div className="flex items-center space-x-2">
+                              <span>{r.name}</span>
+                              {r.redeemRequest && <span className="bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full font-bold">Minta Tebus</span>}
+                            </div>
+                          </td>
+                          <td className="p-4"><span className="bg-slate-100 text-slate-700 px-2 py-1 rounded text-xs font-semibold">Ramin {r.ramin}</span></td>
+                          <td className="p-4 font-medium text-slate-600">{r.houseNo}</td>
+                          <td className="p-4 text-center font-bold text-blue-600">{r.marks}</td>
+                          <td className="p-4 text-center font-bold text-slate-700">{getResidentTotal(r)}</td>
+                          {userRole === 'admin' && (
+                            <td className="p-4">
+                              <div className="flex items-center justify-center space-x-2">
+                                {r.redeemRequest && (
+                                  <button onClick={() => handleAcceptRedeem(r)} className="p-1 bg-green-500 hover:bg-green-600 text-white rounded shadow-sm" title="Luluskan Wang"><CheckCircle className="w-4 h-4" /></button>
+                                )}
+                                <button onClick={() => { setEditResidentData(r); setShowEditModal(true); }} className="p-1 text-blue-600 hover:bg-blue-50 rounded"><Edit className="w-4 h-4" /></button>
+                                <button onClick={() => handleDeleteResident(r.id, r.name)} className="p-1 text-red-600 hover:bg-red-50 rounded"><Trash className="w-4 h-4" /></button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                      {filteredResidents.length === 0 && (
+                        <tr><td colSpan="7" className="p-8 text-center text-slate-400">Tiada rekod penduduk ditemui.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Log Aktiviti Smart Bin (Masa Nyata) */}
+              <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+                <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center"><Activity className="mr-2 text-emerald-500" /> Aktiviti REVIVE Smart Bin</h2>
+                <div className="space-y-4">
+                  {recentActivity.map((act) => (
+                    <div key={act.id} className="flex items-start space-x-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
+                      <div className="bg-emerald-500 p-1.5 rounded-md text-white mt-0.5"><Recycle className="w-4 h-4" /></div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-700 truncate">{act.name} ({act.residentId})</p>
+                        <p className="text-xs text-slate-500">{act.message}</p>
+                        <span className="text-[10px] text-slate-400 font-medium block mt-1">{act.time}</span>
+                      </div>
+                    </div>
+                  ))}
+                  {recentActivity.length === 0 && (
+                    <div className="text-center py-8 text-slate-400 text-sm">Menunggu isyarat perkakasan IoT luaran...</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================== */}
+        {/* VIEW 2: STATISTIK ZON RAMIN                */}
+        {/* ========================================== */}
+        {activeTab === 'statistik' && (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 animate-in fade-in duration-300">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800">Prestasi Hijau Sektor Ramin</h2>
+                <p className="text-sm text-slate-500">Analisis perbandingan jumlah botol yang berjaya dikumpul mengikut zon jalan.</p>
+              </div>
+              <select value={statViewType} onChange={(e) => setStatViewType(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-medium bg-slate-50">
+                <option value="keseluruhan">Statistik Keseluruhan</option>
+                <option value="semasa">Baki Aktif Semasa</option>
+              </select>
+            </div>
+
+            <div className="space-y-6 max-w-3xl">
+              {availableRamins.map(rNum => {
+                const rKey = `Ramin ${rNum}`;
+                const rData = statsByRamin[rKey] || { currentTotal: 0, lifetimeTotal: 0 };
+                const totalTarget = statViewType === 'semasa' ? rData.currentTotal : rData.lifetimeTotal;
+                const grandTotal = statViewType === 'semasa' ? totalBottlesCurrent : totalBottlesLifetime;
+                const percentage = grandTotal > 0 ? Math.round((totalTarget / grandTotal) * 100) : 0;
+
+                return (
+                  <div key={rNum} className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-bold text-slate-700">{rKey}</span>
+                      <span className="text-slate-500 font-bold">{totalTarget} Botol ({percentage}%)</span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+                      <div className="bg-emerald-500 h-3 rounded-full transition-all duration-1000" style={{ width: `${percentage}%` }}></div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </main>
     </div>
   );
 }
