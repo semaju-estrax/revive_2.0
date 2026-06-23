@@ -102,7 +102,7 @@ const dict = {
     noRec: "Tiada rekod penduduk ditemui.",
     actTitle: "Aktiviti REVIVE Smart Bin",
     waitSig: "Menunggu isyarat perkakasan IoT luaran...",
-    statTitle: "Prestasi Hijau Sektor Ramin",
+    statTitle: "Prestasi Hijau Taman Mawar (Lorong Ramin)",
     statDesc: "Analisis perbandingan jumlah botol yang berjaya dikumpul mengikut zon jalan.",
     optAll: "Statistik Keseluruhan",
     optCur: "Baki Aktif Semasa",
