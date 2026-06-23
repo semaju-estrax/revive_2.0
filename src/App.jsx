@@ -3,9 +3,25 @@ import {
   Recycle, LayoutDashboard, BarChart3, User, Plus, Edit2, Trash2, 
   Settings, Upload, RefreshCw, AlertCircle, CheckCircle, XCircle, Search, Filter 
 } from 'lucide-react';
-import { db } from './firebase'; // Pastikan path ke fail konfigurasi firebase anda betul
-import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { initializeApp } from 'firebase/app';
+import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 
+// ==========================================
+// 1. KONFIGURASI FIREBASE DI SINI (SATU FAIL)
+// ==========================================
+const firebaseConfig = {
+  apiKey: "AIzaSyA93ckSUA4i5gLYoKgt-gQv-IjwQGAOEGs",
+  authDomain: "revive-165c1.firebaseapp.com",
+  projectId: "revive-165c1",
+  storageBucket: "revive-165c1.firebasestorage.app",
+  messagingSenderId: "2820905150",
+  appId: "1:2820905150:web:15cecb416aec550f5066ef"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// Data awal pelajar/penduduk
 const initialStudents = [
   { id: "S001", name: "Fatihah", marks: 102, totalMarks: 102, form: "1", className: "A", redeemRequest: false },
   { id: "S002", name: "Irfan", marks: 13, totalMarks: 155, form: "1", className: "B", redeemRequest: true },
@@ -20,7 +36,7 @@ export default function App() {
   // ==========================================
   // STATE MANAGEMENT
   // ==========================================
-  const [userRole, setUserRole] = useState('guest'); // 'guest' | 'student' | 'admin'
+  const [userRole, setUserRole] = useState('guest'); 
   const [loggedInStudent, setLoggedInStudent] = useState(null);
   
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -30,7 +46,6 @@ export default function App() {
   
   const [activeTab, setActiveTab] = useState('dashboard'); 
   const [statViewType, setStatViewType] = useState('keseluruhan');
-  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); 
   
   const [students, setStudents] = useState([]);
   const [isLoading, setIsLoading] = useState(true); // Memastikan sistem memuat turun data dahulu
@@ -307,7 +322,7 @@ export default function App() {
           }
         }
       }
-      alert(`${successCount} rekod pelajar berjaya dimuat naik!`);
+      alert(`${successCount} rekod berjaya dimuat naik!`);
       e.target.value = null; 
     };
     reader.readAsText(file);
@@ -647,7 +662,7 @@ export default function App() {
       {showAddModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
-            <h3 className="text-lg font-bold text-slate-800">Daftar Ahli Komuniti Baru</h3>
+            <h3 className="text-lg font-bold text-slate-800">Daftar Rekod Baru</h3>
             <form onSubmit={handleAddStudent} className="space-y-4 mt-4">
               <div>
                 <label className="text-xs text-slate-500 font-medium block">ID Pelajar / Kad Unik</label>
@@ -682,14 +697,14 @@ export default function App() {
         </div>
       )}
 
-      {/* 3. MODAL WINDOW: EDIT DATA DATA PELAJAR */}
+      {/* 3. MODAL WINDOW: EDIT DATA PELAJAR */}
       {showEditModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
             <h3 className="text-lg font-bold text-slate-800">Kemaskini Profil & Mata</h3>
             <form onSubmit={handleUpdateStudent} className="space-y-4 mt-4">
               <div>
-                <label className="text-xs text-slate-500 font-mono block">ID Pelajar: {editStudentData.id}</label>
+                <label className="text-xs text-slate-500 font-mono block">ID / Kad Unik: {editStudentData.id}</label>
                 <input type="text" required value={editStudentData.name} onChange={(e) => setEditStudentData({...editStudentData, name: e.target.value})} className="w-full mt-2 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none" />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -746,7 +761,7 @@ export default function App() {
       )}
 
       {/* ==========================================
-         🆕 FOOTER COMPONENT (Sentiasa Di Bawah Sekali)
+         FOOTER COMPONENT (Sentiasa Di Bawah Sekali)
          ========================================== */}
       <footer className="bg-slate-900 text-slate-400 text-sm border-t border-slate-800 mt-12 w-full">
         <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
