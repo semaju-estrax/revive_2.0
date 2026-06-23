@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Recycle, Users, Trophy, Activity, Search, QrCode, ArrowRight, Trash2, XCircle, Lock, User, Plus, X, Edit, Trash, Gift, Wallet, BarChart3, LayoutDashboard, Calendar, Filter, Upload, Settings, Bell, CheckCircle, Clock, Home, Globe } from 'lucide-react';
+import { Recycle, Users, Trophy, Activity, Search, QrCode, ArrowRight, Trash2, XCircle, Lock, User, Plus, X, Edit, Trash, Gift, Wallet, BarChart3, LayoutDashboard, Calendar, Filter, Upload, Settings, Bell, CheckCircle, Clock, Home, Globe, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 
@@ -33,6 +33,11 @@ const initialResidents = [
 const dict = {
   ms: {
     loadingText: "Memuatkan sistem pintar REVIVE...",
+    chooseRole: "Pilih Peranan Anda",
+    roleResidentDesc: "Akses profil, lihat rekod, dan tebus ganjaran hijau anda.",
+    roleAdminDesc: "Urus komuniti, tetapan sistem, dan pengesahan tebusan.",
+    loginAs: "Log Masuk sebagai",
+    back: "Kembali",
     loginRevive: "Log Masuk REVIVE",
     resident: "Penduduk",
     admin: "Pengurus Taman",
@@ -40,7 +45,7 @@ const dict = {
     adminUser: "Kredensial Admin",
     password: "Kata Laluan",
     defaultPass: "(Lalai: 1234)",
-    enter: "Masuk",
+    enter: "Masuk Sistem",
     qrTitle: "Kod QR Kitar Semula",
     qrDesc: "Tunjukkan kod QR ini ke kamera pengimbas di REVIVE Smart Bin semasa ingin membuang botol.",
     settingTitle: "Tetapan Nilai Botol",
@@ -117,6 +122,11 @@ const dict = {
   },
   en: {
     loadingText: "Loading REVIVE smart system...",
+    chooseRole: "Choose Your Role",
+    roleResidentDesc: "Access profile, view records, and redeem your green rewards.",
+    roleAdminDesc: "Manage community, system settings, and redemptions.",
+    loginAs: "Login as",
+    back: "Back",
     loginRevive: "REVIVE Login",
     resident: "Resident",
     admin: "Park Manager",
@@ -124,7 +134,7 @@ const dict = {
     adminUser: "Admin Username",
     password: "Password",
     defaultPass: "(Default: 1234)",
-    enter: "Login",
+    enter: "Enter System",
     qrTitle: "Recycling QR Code",
     qrDesc: "Show this QR code to the scanner camera at the REVIVE Smart Bin when disposing of bottles.",
     settingTitle: "Bottle Value Settings",
@@ -202,32 +212,30 @@ const dict = {
 };
 
 export default function App() {
-  // State Dwibahasa (Bilingual)
   const [lang, setLang] = useState('ms');
   const t = (key) => dict[lang][key] || key;
 
-  // State Pemuatan Aplikasi Utama (Loading Screen)
   const [isAppLoading, setIsAppLoading] = useState(true);
 
   // ==========================================
   // STATE PENGURUSAN ROLE & LOGIN
   // ==========================================
-  const [userRole, setUserRole] = useState('guest'); // guest, resident, admin
+  const [userRole, setUserRole] = useState('guest'); 
   const [loggedInResident, setLoggedInResident] = useState(null);
   
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [showQrModal, setShowQrModal] = useState(false);
+  const [loginStep, setLoginStep] = useState('selectRole'); // 'selectRole' | 'form'
   const [loginTab, setLoginTab] = useState('resident'); 
   const [loginUser, setLoginUser] = useState('');
   const [loginPass, setLoginPass] = useState('');
   
-  // State Paparan
+  const [showQrModal, setShowQrModal] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard'); 
   const [statViewType, setStatViewType] = useState('keseluruhan');
   const [residents, setResidents] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
   const [isScanning, setIsScanning] = useState(false);
-  const [conversionRate, setConversionRate] = useState(0.10); // Default RM0.10
+  const [conversionRate, setConversionRate] = useState(0.10); 
   
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRamin, setFilterRamin] = useState('');
@@ -280,7 +288,6 @@ export default function App() {
         });
       }
 
-      // Memberi sedikit masa lengah (delay) supaya animasi loading moden sempat dipaparkan
       setTimeout(() => {
         setIsAppLoading(false);
       }, 1200);
@@ -293,7 +300,6 @@ export default function App() {
     };
   }, []);
 
-  // Update session penduduk jika data Firebase berubah
   useEffect(() => {
     if (userRole === 'resident' && loggedInResident) {
       const freshData = residents.find(r => r.id === loggedInResident.id);
@@ -304,6 +310,18 @@ export default function App() {
   // ==========================================
   // LOGIK LOGIN
   // ==========================================
+  const handleOpenLogin = () => {
+    setLoginStep('selectRole');
+    setLoginUser('');
+    setLoginPass('');
+    setShowLoginModal(true);
+  };
+
+  const handleSelectRole = (role) => {
+    setLoginTab(role);
+    setLoginStep('form');
+  };
+
   const handleLogin = (e) => {
     e.preventDefault();
     if (loginTab === 'admin') {
@@ -391,12 +409,6 @@ export default function App() {
     }
   };
 
-  const handleCancelRedeem = async (residentId) => {
-    try {
-      await updateDoc(doc(db, 'residents', residentId), { redeemRequest: false });
-    } catch (err) { alert(t('alertErrSystem')); }
-  };
-
   const handleAddResident = async (e) => {
     e.preventDefault();
     if (!newResident.id || !newResident.name || !newResident.ramin || !newResident.houseNo) return alert(t('alertIncomplete'));
@@ -466,9 +478,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center font-sans">
         <div className="relative flex justify-center items-center">
-          {/* Efek pencahayaan hijau di belakang ikon */}
           <div className="absolute inset-0 bg-emerald-400 rounded-full blur-2xl opacity-20 animate-pulse w-24 h-24 m-auto"></div>
-          {/* Ikon Kitar Semula berputar */}
           <Recycle className="h-20 w-20 text-emerald-600 animate-[spin_3s_linear_infinite] relative z-10" />
         </div>
         <h2 className="mt-8 text-xl font-bold text-slate-800 tracking-wide animate-pulse">
@@ -490,38 +500,73 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans relative flex flex-col animate-in fade-in duration-700">
       
       {/* ========================================== */}
-      {/* MODAL & POPUPS                             */}
+      {/* MODAL & POPUPS (MODEN UX LOGIN)            */}
       {/* ========================================== */}
       {showLoginModal && userRole === 'guest' && (
         <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex justify-center items-center z-50 p-4 backdrop-blur-sm transition-opacity">
-          <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md animate-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-slate-800">{t('loginRevive')}</h2>
-              <button onClick={() => setShowLoginModal(false)} className="text-slate-400 hover:text-red-500 transition-colors"><X /></button>
+          <div className={`bg-white p-8 rounded-3xl shadow-2xl w-full ${loginStep === 'selectRole' ? 'max-w-2xl' : 'max-w-md'} animate-in zoom-in-95 duration-300`}>
+            
+            <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+              <div className="flex items-center space-x-3">
+                {loginStep === 'form' && (
+                  <button onClick={() => setLoginStep('selectRole')} className="p-2 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-full transition-colors" title={t('back')}>
+                    <ArrowLeft className="h-5 w-5" />
+                  </button>
+                )}
+                <h2 className="text-2xl font-bold text-slate-800">
+                  {loginStep === 'selectRole' ? t('chooseRole') : `${t('loginAs')} ${loginTab === 'resident' ? t('resident') : t('admin')}`}
+                </h2>
+              </div>
+              <button onClick={() => setShowLoginModal(false)} className="p-2 bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-full transition-colors"><X className="h-5 w-5"/></button>
             </div>
             
-            <div className="flex mb-6 bg-slate-100 p-1 rounded-lg">
-              <button onClick={() => setLoginTab('resident')} className={`flex-1 py-2 text-sm font-bold rounded-md transition-colors ${loginTab === 'resident' ? 'bg-white shadow text-emerald-600' : 'text-slate-500 hover:text-slate-700'}`}>{t('resident')}</button>
-              <button onClick={() => setLoginTab('admin')} className={`flex-1 py-2 text-sm font-bold rounded-md transition-colors ${loginTab === 'admin' ? 'bg-white shadow text-emerald-600' : 'text-slate-500 hover:text-slate-700'}`}>{t('admin')}</button>
-            </div>
+            {loginStep === 'selectRole' ? (
+              // STEP 1: KAD PILIHAN PERANAN (ROLE SELECTION CARDS)
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div 
+                  onClick={() => handleSelectRole('resident')}
+                  className="group cursor-pointer bg-white border-2 border-slate-100 hover:border-emerald-500 rounded-2xl p-6 text-center shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+                >
+                  <div className="bg-emerald-50 w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-4 group-hover:bg-emerald-100 transition-colors">
+                    <Users className="h-10 w-10 text-emerald-600 group-hover:scale-110 transition-transform" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-800 mb-2">{t('resident')}</h3>
+                  <p className="text-sm text-slate-500">{t('roleResidentDesc')}</p>
+                </div>
 
-            <form onSubmit={handleLogin} className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium mb-1">{loginTab === 'resident' ? t('resId') : t('adminUser')}</label>
-                <div className="relative">
-                  <User className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
-                  <input type="text" required value={loginUser} onChange={(e) => setLoginUser(e.target.value)} className="w-full pl-10 p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none transition-all" />
+                <div 
+                  onClick={() => handleSelectRole('admin')}
+                  className="group cursor-pointer bg-white border-2 border-slate-100 hover:border-blue-500 rounded-2xl p-6 text-center shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+                >
+                  <div className="bg-blue-50 w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-4 group-hover:bg-blue-100 transition-colors">
+                    <ShieldCheck className="h-10 w-10 text-blue-600 group-hover:scale-110 transition-transform" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-800 mb-2">{t('admin')}</h3>
+                  <p className="text-sm text-slate-500">{t('roleAdminDesc')}</p>
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">{t('password')} {loginTab === 'resident' && <span className="text-slate-400 font-normal">{t('defaultPass')}</span>}</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
-                  <input type="password" required value={loginPass} onChange={(e) => setLoginPass(e.target.value)} className="w-full pl-10 p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none transition-all" />
+            ) : (
+              // STEP 2: BORANG LOG MASUK (LOGIN FORM)
+              <form onSubmit={handleLogin} className="space-y-6 animate-in slide-in-from-right-4 duration-300">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">{loginTab === 'resident' ? t('resId') : t('adminUser')}</label>
+                  <div className="relative group">
+                    <User className="absolute left-4 top-3.5 h-5 w-5 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
+                    <input type="text" required value={loginUser} onChange={(e) => setLoginUser(e.target.value)} className="w-full pl-12 p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all bg-slate-50 focus:bg-white" />
+                  </div>
                 </div>
-              </div>
-              <button type="submit" className="w-full bg-emerald-600 text-white font-bold py-3 rounded-lg hover:bg-emerald-700 shadow-md hover:shadow-lg transition-all">{t('enter')}</button>
-            </form>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">{t('password')} {loginTab === 'resident' && <span className="text-slate-400 font-normal ml-1">{t('defaultPass')}</span>}</label>
+                  <div className="relative group">
+                    <Lock className="absolute left-4 top-3.5 h-5 w-5 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
+                    <input type="password" required value={loginPass} onChange={(e) => setLoginPass(e.target.value)} className="w-full pl-12 p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all bg-slate-50 focus:bg-white" />
+                  </div>
+                </div>
+                <button type="submit" className={`w-full text-white font-bold py-3.5 rounded-xl shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 ${loginTab === 'resident' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                  {t('enter')}
+                </button>
+              </form>
+            )}
           </div>
         </div>
       )}
@@ -633,10 +678,10 @@ export default function App() {
                 <button onClick={handleLogout} className="bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg text-sm font-bold transition-all shadow-sm">{t('logout')}</button>
               </div>
             ) : (
-              <button onClick={() => setShowLoginModal(true)} className="bg-emerald-800 hover:bg-emerald-900 px-4 py-2 rounded-lg text-sm font-bold flex items-center transition-all shadow-sm"><User className="h-4 w-4 mr-2"/> {t('login')}</button>
+              // Butang ini sekarang akan buka Modal Step 1 (Pilih Peranan)
+              <button onClick={handleOpenLogin} className="bg-emerald-800 hover:bg-emerald-900 px-4 py-2 rounded-lg text-sm font-bold flex items-center transition-all shadow-sm"><User className="h-4 w-4 mr-2"/> {t('login')}</button>
             )}
 
-            {/* BUTANG PENUKAR BAHASA */}
             <button 
               onClick={() => setLang(lang === 'ms' ? 'en' : 'ms')} 
               className="ml-3 bg-emerald-700 hover:bg-emerald-800 px-3 py-1.5 rounded-lg text-sm font-bold flex items-center transition-all border border-emerald-500 shadow-sm"
@@ -649,7 +694,6 @@ export default function App() {
 
       <main className="flex-grow max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 w-full">
 
-        {/* INTERFACE KHAS UNTUK PENDUDUK YANG LOG MASUK */}
         {userRole === 'resident' && loggedInResident && (
           <div className="bg-white border border-slate-200 p-6 mb-8 rounded-2xl shadow-sm hover:shadow-md transition-shadow grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
             <div>
@@ -693,7 +737,6 @@ export default function App() {
           </div>
         )}
 
-        {/* NOTIFIKASI REQUEST UNTUK ADMIN */}
         {userRole === 'admin' && pendingRequestsCount > 0 && (
           <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded-r-xl shadow-sm">
             <h3 className="font-bold text-blue-800 flex items-center"><Bell className="h-5 w-5 mr-2 animate-bounce" /> {t('notiTitle')}</h3>
@@ -723,7 +766,6 @@ export default function App() {
               )}
             </div>
 
-            {/* Grid Statistik Utama */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               <div className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow border border-slate-100 p-6 flex items-center group">
                 <div className="bg-emerald-50 p-4 rounded-xl text-emerald-600 mr-4 group-hover:scale-110 transition-transform"><Trash2 className="h-8 w-8" /></div>
@@ -744,7 +786,6 @@ export default function App() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Jadual Penduduk */}
               <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                 <div className="p-5 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-50/50">
                   <h2 className="text-lg font-bold text-slate-800 shrink-0">
@@ -815,7 +856,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Log Aktiviti Smart Bin (Masa Nyata) */}
               <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col">
                 <h2 className="text-lg font-bold text-slate-800 mb-5 flex items-center"><Activity className="mr-2 text-emerald-500 h-5 w-5" /> {t('actTitle')}</h2>
                 <div className="space-y-4 flex-grow overflow-hidden relative">
@@ -872,7 +912,6 @@ export default function App() {
                     </div>
                     <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden shadow-inner">
                       <div className="bg-gradient-to-r from-emerald-400 to-emerald-600 h-full rounded-full transition-all duration-1000 ease-out relative" style={{ width: `${percentage}%` }}>
-                         {/* Shine effect in progress bar */}
                          <div className="absolute top-0 bottom-0 left-0 right-0 bg-white opacity-20 w-full h-full animate-[pulse_2s_ease-in-out_infinite]"></div>
                       </div>
                     </div>
@@ -884,16 +923,12 @@ export default function App() {
         )}
       </main>
 
-      {/* FOOTER MODEN PROFESIONAL DENGAN ANIMASI */}
       <footer className="w-full bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-slate-300 text-center py-6 mt-auto shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] relative overflow-hidden group">
-        {/* Latar Belakang Hover Efek Halus */}
         <div className="absolute inset-0 bg-emerald-500/0 group-hover:bg-emerald-500/5 transition-colors duration-700 ease-in-out"></div>
-        
         <div className="flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-3 relative z-10">
           <span className="text-sm font-medium tracking-wider text-slate-400 group-hover:text-emerald-400 transition-colors duration-500">
             &copy; {new Date().getFullYear()} {t('footer')}
           </span>
-          {/* Ikon Kitar Semula dengan animasi putaran perlahan berterusan */}
           <Recycle className="h-4 w-4 text-emerald-500/70 group-hover:text-emerald-400 animate-[spin_4s_linear_infinite] transition-colors duration-500" />
         </div>
       </footer>
