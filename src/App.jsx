@@ -32,6 +32,7 @@ const initialResidents = [
 // ==========================================
 const dict = {
   ms: {
+    loadingText: "Memuatkan sistem pintar REVIVE...",
     loginRevive: "Log Masuk REVIVE",
     resident: "Penduduk",
     admin: "Pengurus Taman",
@@ -115,6 +116,7 @@ const dict = {
     logMsg: "REVIVE Smart Bin mengesan pembuangan botol."
   },
   en: {
+    loadingText: "Loading REVIVE smart system...",
     loginRevive: "REVIVE Login",
     resident: "Resident",
     admin: "Park Manager",
@@ -204,6 +206,9 @@ export default function App() {
   const [lang, setLang] = useState('ms');
   const t = (key) => dict[lang][key] || key;
 
+  // State Pemuatan Aplikasi Utama (Loading Screen)
+  const [isAppLoading, setIsAppLoading] = useState(true);
+
   // ==========================================
   // STATE PENGURUSAN ROLE & LOGIN
   // ==========================================
@@ -234,8 +239,6 @@ export default function App() {
   const [newResident, setNewResident] = useState({ id: '', name: '', ramin: '', houseNo: '' });
   const [editResidentData, setEditResidentData] = useState({ id: '', name: '', ramin: '', houseNo: '', marks: 0, totalMarks: 0 });
   const [tempRate, setTempRate] = useState(0.10);
-
-  const fileInputRef = useRef(null); 
 
   // ==========================================
   // BACA DATA DARI FIREBASE (Collection: residents)
@@ -276,6 +279,12 @@ export default function App() {
           await setDoc(doc(residentsRef, r.id), r);
         });
       }
+
+      // Memberi sedikit masa lengah (delay) supaya animasi loading moden sempat dipaparkan
+      setTimeout(() => {
+        setIsAppLoading(false);
+      }, 1200);
+
     });
     
     return () => {
@@ -343,7 +352,6 @@ export default function App() {
     return matchSearch && matchRamin;
   });
 
-  // Pengiraan Data mengikut Sektor Ramin
   const statsByRamin = {};
   residents.forEach(r => {
     const raminKey = `Ramin ${r.ramin}`;
@@ -431,7 +439,6 @@ export default function App() {
     }
   };
 
-  // Simulasi Imbasan IoT
   const simulateESP32Scan = async () => {
     if (residents.length === 0) return;
     setIsScanning(true);
@@ -452,23 +459,50 @@ export default function App() {
 
   const pendingRequestsCount = residents.filter(r => r.redeemRequest).length;
 
+  // ==========================================
+  // PAPARAN LOADING (SKRIN PEMUATAN MODEN)
+  // ==========================================
+  if (isAppLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center font-sans">
+        <div className="relative flex justify-center items-center">
+          {/* Efek pencahayaan hijau di belakang ikon */}
+          <div className="absolute inset-0 bg-emerald-400 rounded-full blur-2xl opacity-20 animate-pulse w-24 h-24 m-auto"></div>
+          {/* Ikon Kitar Semula berputar */}
+          <Recycle className="h-20 w-20 text-emerald-600 animate-[spin_3s_linear_infinite] relative z-10" />
+        </div>
+        <h2 className="mt-8 text-xl font-bold text-slate-800 tracking-wide animate-pulse">
+          {t('loadingText')}
+        </h2>
+        <div className="flex space-x-1 mt-3">
+          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================
+  // PAPARAN APLIKASI UTAMA
+  // ==========================================
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans relative flex flex-col">
+    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans relative flex flex-col animate-in fade-in duration-700">
       
       {/* ========================================== */}
       {/* MODAL & POPUPS                             */}
       {/* ========================================== */}
       {showLoginModal && userRole === 'guest' && (
-        <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
-          <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex justify-center items-center z-50 p-4 backdrop-blur-sm transition-opacity">
+          <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md animate-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold text-slate-800">{t('loginRevive')}</h2>
-              <button onClick={() => setShowLoginModal(false)} className="text-slate-400 hover:text-red-500"><X /></button>
+              <button onClick={() => setShowLoginModal(false)} className="text-slate-400 hover:text-red-500 transition-colors"><X /></button>
             </div>
             
             <div className="flex mb-6 bg-slate-100 p-1 rounded-lg">
-              <button onClick={() => setLoginTab('resident')} className={`flex-1 py-2 text-sm font-bold rounded-md ${loginTab === 'resident' ? 'bg-white shadow text-emerald-600' : 'text-slate-500'}`}>{t('resident')}</button>
-              <button onClick={() => setLoginTab('admin')} className={`flex-1 py-2 text-sm font-bold rounded-md ${loginTab === 'admin' ? 'bg-white shadow text-emerald-600' : 'text-slate-500'}`}>{t('admin')}</button>
+              <button onClick={() => setLoginTab('resident')} className={`flex-1 py-2 text-sm font-bold rounded-md transition-colors ${loginTab === 'resident' ? 'bg-white shadow text-emerald-600' : 'text-slate-500 hover:text-slate-700'}`}>{t('resident')}</button>
+              <button onClick={() => setLoginTab('admin')} className={`flex-1 py-2 text-sm font-bold rounded-md transition-colors ${loginTab === 'admin' ? 'bg-white shadow text-emerald-600' : 'text-slate-500 hover:text-slate-700'}`}>{t('admin')}</button>
             </div>
 
             <form onSubmit={handleLogin} className="space-y-6">
@@ -476,29 +510,28 @@ export default function App() {
                 <label className="block text-sm font-medium mb-1">{loginTab === 'resident' ? t('resId') : t('adminUser')}</label>
                 <div className="relative">
                   <User className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
-                  <input type="text" required value={loginUser} onChange={(e) => setLoginUser(e.target.value)} className="w-full pl-10 p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500" />
+                  <input type="text" required value={loginUser} onChange={(e) => setLoginUser(e.target.value)} className="w-full pl-10 p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none transition-all" />
                 </div>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">{t('password')} {loginTab === 'resident' && <span className="text-slate-400 font-normal">{t('defaultPass')}</span>}</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
-                  <input type="password" required value={loginPass} onChange={(e) => setLoginPass(e.target.value)} className="w-full pl-10 p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500" />
+                  <input type="password" required value={loginPass} onChange={(e) => setLoginPass(e.target.value)} className="w-full pl-10 p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none transition-all" />
                 </div>
               </div>
-              <button type="submit" className="w-full bg-emerald-600 text-white font-bold py-3 rounded-lg hover:bg-emerald-700">{t('enter')}</button>
+              <button type="submit" className="w-full bg-emerald-600 text-white font-bold py-3 rounded-lg hover:bg-emerald-700 shadow-md hover:shadow-lg transition-all">{t('enter')}</button>
             </form>
           </div>
         </div>
       )}
 
-      {/* MODAL AUTO-GENERATE QR CODE UNTUK PENDUDUK */}
       {showQrModal && userRole === 'resident' && loggedInResident && (
         <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
           <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-sm text-center animate-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold text-slate-800">{t('qrTitle')}</h3>
-              <button onClick={() => setShowQrModal(false)} className="text-slate-400 hover:text-red-500"><X /></button>
+              <button onClick={() => setShowQrModal(false)} className="text-slate-400 hover:text-red-500 transition-colors"><X /></button>
             </div>
             <p className="text-xs text-slate-500 mb-4">{t('qrDesc')}</p>
             
@@ -520,53 +553,53 @@ export default function App() {
       )}
 
       {showSettingsModal && (
-        <div className="fixed inset-0 bg-slate-900 bg-opacity-50 flex justify-center items-center z-50 p-4">
-          <div className="bg-white p-6 rounded-xl w-full max-w-sm">
-            <div className="flex justify-between mb-4"><h3 className="font-bold text-xl">{t('settingTitle')}</h3><button onClick={() => setShowSettingsModal(false)}><X/></button></div>
+        <div className="fixed inset-0 bg-slate-900 bg-opacity-50 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white p-6 rounded-xl w-full max-w-sm animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between mb-4"><h3 className="font-bold text-xl">{t('settingTitle')}</h3><button onClick={() => setShowSettingsModal(false)} className="hover:text-red-500 transition-colors"><X/></button></div>
             <form onSubmit={handleUpdateSettings} className="space-y-4">
-              <div><label className="block text-sm font-bold text-slate-700">{t('bottleEq')}</label><input type="number" step="0.01" min="0" required value={tempRate} onChange={(e) => setTempRate(e.target.value)} className="w-full p-2 border rounded font-bold text-emerald-600 focus:ring-2 focus:ring-emerald-500" /></div>
-              <button type="submit" className="w-full bg-emerald-600 text-white p-2 rounded font-bold">{t('save')}</button>
+              <div><label className="block text-sm font-bold text-slate-700 mb-1">{t('bottleEq')}</label><input type="number" step="0.01" min="0" required value={tempRate} onChange={(e) => setTempRate(e.target.value)} className="w-full p-2 border rounded-lg font-bold text-emerald-600 focus:ring-2 focus:ring-emerald-500 outline-none transition-all" /></div>
+              <button type="submit" className="w-full bg-emerald-600 text-white p-3 rounded-lg font-bold hover:bg-emerald-700 transition-colors">{t('save')}</button>
             </form>
           </div>
         </div>
       )}
 
       {showAddModal && (
-        <div className="fixed inset-0 bg-slate-900 bg-opacity-50 flex justify-center items-center z-50 p-4">
-          <div className="bg-white p-6 rounded-xl w-full max-w-md">
-            <div className="flex justify-between mb-4"><h3 className="font-bold text-xl">{t('addResTitle')}</h3><button onClick={() => setShowAddModal(false)}><X/></button></div>
+        <div className="fixed inset-0 bg-slate-900 bg-opacity-50 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white p-6 rounded-xl w-full max-w-md animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between mb-4"><h3 className="font-bold text-xl">{t('addResTitle')}</h3><button onClick={() => setShowAddModal(false)} className="hover:text-red-500 transition-colors"><X/></button></div>
             <form onSubmit={handleAddResident} className="space-y-4">
-              <input type="text" placeholder={t('phResId')} required value={newResident.id} onChange={(e) => setNewResident({...newResident, id: e.target.value})} className="w-full p-2 border rounded" />
-              <input type="text" placeholder={t('phName')} required value={newResident.name} onChange={(e) => setNewResident({...newResident, name: e.target.value})} className="w-full p-2 border rounded" />
+              <input type="text" placeholder={t('phResId')} required value={newResident.id} onChange={(e) => setNewResident({...newResident, id: e.target.value})} className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
+              <input type="text" placeholder={t('phName')} required value={newResident.name} onChange={(e) => setNewResident({...newResident, name: e.target.value})} className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
               <div className="grid grid-cols-2 gap-4">
-                <select required value={newResident.ramin} onChange={(e) => setNewResident({...newResident, ramin: e.target.value})} className="w-full p-2 border rounded bg-white">
+                <select required value={newResident.ramin} onChange={(e) => setNewResident({...newResident, ramin: e.target.value})} className="w-full p-2 border rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
                   <option value="" disabled>{t('selRamin')}</option>
                   {availableRamins.map(r => <option key={r} value={r}>Ramin {r}</option>)}
                 </select>
-                <input type="text" placeholder={t('phHouse')} required value={newResident.houseNo} onChange={(e) => setNewResident({...newResident, houseNo: e.target.value})} className="w-full p-2 border rounded" />
+                <input type="text" placeholder={t('phHouse')} required value={newResident.houseNo} onChange={(e) => setNewResident({...newResident, houseNo: e.target.value})} className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
               </div>
-              <button type="submit" className="w-full bg-blue-600 text-white p-2 rounded font-bold">{t('saveAcc')}</button>
+              <button type="submit" className="w-full bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-sm">{t('saveAcc')}</button>
             </form>
           </div>
         </div>
       )}
 
       {showEditModal && (
-        <div className="fixed inset-0 bg-slate-900 bg-opacity-50 flex justify-center items-center z-50 p-4">
-          <div className="bg-white p-6 rounded-xl w-full max-w-md">
-            <div className="flex justify-between mb-4"><h3 className="font-bold text-xl">{t('editTitle')}</h3><button onClick={() => setShowEditModal(false)}><X/></button></div>
+        <div className="fixed inset-0 bg-slate-900 bg-opacity-50 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white p-6 rounded-xl w-full max-w-md animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between mb-4"><h3 className="font-bold text-xl">{t('editTitle')}</h3><button onClick={() => setShowEditModal(false)} className="hover:text-red-500 transition-colors"><X/></button></div>
             <form onSubmit={handleUpdateResident} className="space-y-4">
-              <input type="text" disabled value={editResidentData.id} className="w-full p-2 border bg-slate-100 rounded text-slate-500" />
-              <input type="text" required value={editResidentData.name} onChange={(e) => setEditResidentData({...editResidentData, name: e.target.value})} className="w-full p-2 border rounded" />
+              <input type="text" disabled value={editResidentData.id} className="w-full p-2 border bg-slate-100 rounded-lg text-slate-500 cursor-not-allowed" />
+              <input type="text" required value={editResidentData.name} onChange={(e) => setEditResidentData({...editResidentData, name: e.target.value})} className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
               <div className="grid grid-cols-2 gap-4">
-                <select required value={editResidentData.ramin} onChange={(e) => setEditResidentData({...editResidentData, ramin: e.target.value})} className="w-full p-2 border rounded bg-white">
+                <select required value={editResidentData.ramin} onChange={(e) => setEditResidentData({...editResidentData, ramin: e.target.value})} className="w-full p-2 border rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
                   {availableRamins.map(r => <option key={r} value={r}>Ramin {r}</option>)}
                 </select>
-                <input type="text" required value={editResidentData.houseNo} onChange={(e) => setEditResidentData({...editResidentData, houseNo: e.target.value})} className="w-full p-2 border rounded" />
+                <input type="text" required value={editResidentData.houseNo} onChange={(e) => setEditResidentData({...editResidentData, houseNo: e.target.value})} className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
               </div>
-              <div><label className="text-sm font-bold text-slate-600">{t('curBal')}</label><input type="number" required value={editResidentData.marks} onChange={(e) => setEditResidentData({...editResidentData, marks: e.target.value})} className="w-full p-2 border rounded font-bold text-blue-600" /></div>
-              <div><label className="text-sm font-bold text-slate-600">{t('lifeTot')}</label><input type="number" required value={editResidentData.totalMarks} onChange={(e) => setEditResidentData({...editResidentData, totalMarks: e.target.value})} className="w-full p-2 border rounded font-bold text-emerald-600" /></div>
-              <button type="submit" className="w-full bg-blue-600 text-white p-2 rounded font-bold">{t('update')}</button>
+              <div><label className="text-sm font-bold text-slate-600 mb-1 block">{t('curBal')}</label><input type="number" required value={editResidentData.marks} onChange={(e) => setEditResidentData({...editResidentData, marks: e.target.value})} className="w-full p-2 border rounded-lg font-bold text-blue-600 focus:ring-2 focus:ring-blue-500 outline-none transition-all" /></div>
+              <div><label className="text-sm font-bold text-slate-600 mb-1 block">{t('lifeTot')}</label><input type="number" required value={editResidentData.totalMarks} onChange={(e) => setEditResidentData({...editResidentData, totalMarks: e.target.value})} className="w-full p-2 border rounded-lg font-bold text-emerald-600 focus:ring-2 focus:ring-blue-500 outline-none transition-all" /></div>
+              <button type="submit" className="w-full bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-sm">{t('update')}</button>
             </form>
           </div>
         </div>
@@ -577,16 +610,16 @@ export default function App() {
       {/* ========================================== */}
       <nav className="bg-emerald-600 text-white shadow-md sticky top-0 z-40">
         <div className="max-w-7xl mx-auto flex justify-between items-center p-4">
-          <div className="flex items-center space-x-2 cursor-pointer" onClick={() => window.scrollTo(0,0)}>
+          <div className="flex items-center space-x-2 cursor-pointer hover:opacity-90 transition-opacity" onClick={() => window.scrollTo(0,0)}>
             <Recycle className="h-8 w-8" />
             <span className="text-2xl font-bold tracking-wider hidden sm:block">REVIVE</span>
           </div>
           
           <div className="flex space-x-1 bg-emerald-700/50 p-1 rounded-lg">
-            <button onClick={() => setActiveTab('dashboard')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center ${activeTab === 'dashboard' ? 'bg-white text-emerald-700 shadow-sm' : 'text-emerald-50 hover:text-white'}`}>
+            <button onClick={() => setActiveTab('dashboard')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center ${activeTab === 'dashboard' ? 'bg-white text-emerald-700 shadow-sm' : 'text-emerald-50 hover:text-white hover:bg-emerald-700/80'}`}>
               <LayoutDashboard className="w-4 h-4 sm:mr-2" /> <span className="hidden sm:inline">{t('dashboard')}</span>
             </button>
-            <button onClick={() => setActiveTab('statistik')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center ${activeTab === 'statistik' ? 'bg-white text-emerald-700 shadow-sm' : 'text-emerald-50 hover:text-white'}`}>
+            <button onClick={() => setActiveTab('statistik')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center ${activeTab === 'statistik' ? 'bg-white text-emerald-700 shadow-sm' : 'text-emerald-50 hover:text-white hover:bg-emerald-700/80'}`}>
               <BarChart3 className="w-4 h-4 sm:mr-2" /> <span className="hidden sm:inline">{t('statZone')}</span>
             </button>
           </div>
@@ -594,19 +627,19 @@ export default function App() {
           <div className="flex items-center">
             {userRole !== 'guest' ? (
               <div className="flex items-center space-x-3">
-                <span className="hidden md:block text-sm font-medium bg-emerald-800 px-3 py-1 rounded-full">
+                <span className="hidden md:block text-sm font-medium bg-emerald-800 px-3 py-1 rounded-full shadow-inner">
                   {t('hi')} {userRole === 'admin' ? t('secManager') : loggedInResident.name}
                 </span>
-                <button onClick={handleLogout} className="bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded text-sm font-bold transition-colors">{t('logout')}</button>
+                <button onClick={handleLogout} className="bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg text-sm font-bold transition-all shadow-sm">{t('logout')}</button>
               </div>
             ) : (
-              <button onClick={() => setShowLoginModal(true)} className="bg-emerald-800 hover:bg-emerald-900 px-4 py-2 rounded text-sm font-bold flex items-center transition-colors"><User className="h-4 w-4 mr-2"/> {t('login')}</button>
+              <button onClick={() => setShowLoginModal(true)} className="bg-emerald-800 hover:bg-emerald-900 px-4 py-2 rounded-lg text-sm font-bold flex items-center transition-all shadow-sm"><User className="h-4 w-4 mr-2"/> {t('login')}</button>
             )}
 
             {/* BUTANG PENUKAR BAHASA */}
             <button 
               onClick={() => setLang(lang === 'ms' ? 'en' : 'ms')} 
-              className="ml-3 bg-emerald-700 hover:bg-emerald-800 px-3 py-1.5 rounded text-sm font-bold flex items-center transition-colors border border-emerald-500"
+              className="ml-3 bg-emerald-700 hover:bg-emerald-800 px-3 py-1.5 rounded-lg text-sm font-bold flex items-center transition-all border border-emerald-500 shadow-sm"
             >
               <Globe className="h-4 w-4 mr-1"/> {lang === 'ms' ? 'EN' : 'MS'}
             </button>
@@ -618,19 +651,19 @@ export default function App() {
 
         {/* INTERFACE KHAS UNTUK PENDUDUK YANG LOG MASUK */}
         {userRole === 'resident' && loggedInResident && (
-          <div className="bg-white border border-slate-200 p-6 mb-8 rounded-2xl shadow-sm grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+          <div className="bg-white border border-slate-200 p-6 mb-8 rounded-2xl shadow-sm hover:shadow-md transition-shadow grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
             <div>
               <h2 className="text-xl font-bold text-slate-800 flex items-center"><Home className="mr-2 text-emerald-600" /> {t('yourAcc')}</h2>
               <p className="text-slate-500 text-sm mt-1">{t('sector')} <span className="font-bold text-slate-700">Ramin {loggedInResident.ramin}</span> | {t('houseNo')} <span className="font-bold text-slate-700">{loggedInResident.houseNo}</span></p>
               
               <div className="mt-4 flex space-x-4">
-                <div>
-                  <p className="text-xs text-slate-400 font-medium uppercase">{t('rewardBal')}</p>
-                  <p className="text-2xl font-bold text-blue-600">{loggedInResident.marks} {t('bottle')}</p>
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex-1">
+                  <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">{t('rewardBal')}</p>
+                  <p className="text-2xl font-bold text-blue-600 mt-1">{loggedInResident.marks} {t('bottle')}</p>
                 </div>
-                <div>
-                  <p className="text-xs text-slate-400 font-medium uppercase">{t('greenVal')}</p>
-                  <p className="text-2xl font-bold text-emerald-600">RM {(loggedInResident.marks * conversionRate).toFixed(2)}</p>
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex-1">
+                  <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">{t('greenVal')}</p>
+                  <p className="text-2xl font-bold text-emerald-600 mt-1">RM {(loggedInResident.marks * conversionRate).toFixed(2)}</p>
                 </div>
               </div>
             </div>
@@ -638,23 +671,23 @@ export default function App() {
             <div className="space-y-3">
               <button 
                 onClick={() => setShowQrModal(true)} 
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center space-x-2 shadow-md transition"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center space-x-2 shadow-md hover:shadow-lg transition-all"
               >
                 <QrCode className="h-5 w-5" />
                 <span>{t('showQr')}</span>
               </button>
 
               {loggedInResident.marks >= 10 && !loggedInResident.redeemRequest ? (
-                <button onClick={requestRedeem} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-2 px-4 rounded-lg text-sm transition">
+                <button onClick={requestRedeem} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-4 rounded-xl shadow-md hover:shadow-lg transition-all text-sm">
                   {t('reqRedeem')}
                 </button>
               ) : loggedInResident.redeemRequest ? (
-                <div className="bg-amber-50 text-amber-700 text-xs p-3 rounded-lg border border-amber-200 flex items-center">
-                  <Clock className="w-4 h-4 mr-2 shrink-0 animate-pulse" />
+                <div className="bg-amber-50 text-amber-800 text-xs p-4 rounded-xl border border-amber-200 flex items-center shadow-inner font-medium">
+                  <Clock className="w-5 h-5 mr-3 shrink-0 animate-pulse text-amber-600" />
                   <span>{t('reviewMsg')}</span>
                 </div>
               ) : (
-                <p className="text-xs text-center text-slate-400">{t('minBottleMsg')}</p>
+                <p className="text-xs text-center text-slate-400 font-medium bg-slate-50 p-3 rounded-xl border border-slate-100">{t('minBottleMsg')}</p>
               )}
             </div>
           </div>
@@ -662,9 +695,9 @@ export default function App() {
 
         {/* NOTIFIKASI REQUEST UNTUK ADMIN */}
         {userRole === 'admin' && pendingRequestsCount > 0 && (
-          <div className="bg-blue-100 border-l-4 border-blue-500 p-4 mb-6 rounded-r-lg shadow-sm">
-            <h3 className="font-bold text-blue-800 flex items-center"><Bell className="h-5 w-5 mr-2" /> {t('notiTitle')}</h3>
-            <p className="text-blue-700 text-sm mt-1">{t('notiMsg1')} <b>{pendingRequestsCount}</b> {t('notiMsg2')}</p>
+          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded-r-xl shadow-sm">
+            <h3 className="font-bold text-blue-800 flex items-center"><Bell className="h-5 w-5 mr-2 animate-bounce" /> {t('notiTitle')}</h3>
+            <p className="text-blue-700 text-sm mt-1">{t('notiMsg1')} <b className="text-lg mx-1">{pendingRequestsCount}</b> {t('notiMsg2')}</p>
           </div>
         )}
 
@@ -672,18 +705,18 @@ export default function App() {
         {/* VIEW 1: DASHBOARD UTAMA                    */}
         {/* ========================================== */}
         {activeTab === 'dashboard' && (
-          <div className="animate-in fade-in duration-300">
+          <div className="animate-in fade-in duration-500">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
               <div>
-                <h1 className="text-3xl font-bold text-slate-900">{t('dashTitle')}</h1>
-                <p className="text-slate-500 mt-1">{t('susRate')} 1 {t('bottle')} = <span className="font-bold text-emerald-600">RM {conversionRate.toFixed(2)}</span></p>
+                <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">{t('dashTitle')}</h1>
+                <p className="text-slate-500 mt-1">{t('susRate')} 1 {t('bottle')} = <span className="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">RM {conversionRate.toFixed(2)}</span></p>
               </div>
               
               {userRole === 'admin' && (
                 <div className="flex flex-wrap gap-2">
-                  <button onClick={() => { setTempRate(conversionRate); setShowSettingsModal(true); }} className="flex items-center px-4 py-2 rounded-lg font-medium shadow-sm bg-slate-200 text-slate-700 hover:bg-slate-300"><Settings className="mr-2 h-4 w-4" /> {t('valSetting')}</button>
-                  <button onClick={() => setShowAddModal(true)} className="flex items-center px-4 py-2 rounded-lg font-medium shadow-sm bg-blue-600 text-white hover:bg-blue-700"><Plus className="mr-2 h-4 w-4" /> {t('addResBtn')}</button>
-                  <button onClick={simulateESP32Scan} disabled={isScanning} className="flex items-center px-4 py-2 rounded-lg font-medium shadow-sm bg-emerald-600 text-white hover:bg-emerald-700">
+                  <button onClick={() => { setTempRate(conversionRate); setShowSettingsModal(true); }} className="flex items-center px-4 py-2 rounded-lg font-medium shadow-sm bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors"><Settings className="mr-2 h-4 w-4" /> {t('valSetting')}</button>
+                  <button onClick={() => setShowAddModal(true)} className="flex items-center px-4 py-2 rounded-lg font-medium shadow-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors"><Plus className="mr-2 h-4 w-4" /> {t('addResBtn')}</button>
+                  <button onClick={simulateESP32Scan} disabled={isScanning} className="flex items-center px-4 py-2 rounded-lg font-medium shadow-sm bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">
                     <QrCode className="mr-2 h-4 w-4" /> {t('simBtn')}
                   </button>
                 </div>
@@ -692,44 +725,44 @@ export default function App() {
 
             {/* Grid Statistik Utama */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex items-center">
-                <div className="bg-emerald-100 p-4 rounded-lg text-emerald-600 mr-4"><Trash2 className="h-8 w-8" /></div>
-                <div><p className="text-sm text-slate-500 font-medium">{t('totBot')}</p><h3 className="text-3xl font-bold text-slate-800">{totalBottlesLifetime}</h3></div>
+              <div className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow border border-slate-100 p-6 flex items-center group">
+                <div className="bg-emerald-50 p-4 rounded-xl text-emerald-600 mr-4 group-hover:scale-110 transition-transform"><Trash2 className="h-8 w-8" /></div>
+                <div><p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">{t('totBot')}</p><h3 className="text-3xl font-black text-slate-800">{totalBottlesLifetime}</h3></div>
               </div>
-              <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex items-center">
-                <div className="bg-amber-100 p-4 rounded-lg text-amber-600 mr-4"><Wallet className="h-8 w-8" /></div>
-                <div><p className="text-sm text-slate-500 font-medium">{t('totFund')}</p><h3 className="text-3xl font-bold text-slate-800">{(totalBottlesLifetime * conversionRate).toFixed(2)}</h3></div>
+              <div className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow border border-slate-100 p-6 flex items-center group">
+                <div className="bg-amber-50 p-4 rounded-xl text-amber-600 mr-4 group-hover:scale-110 transition-transform"><Wallet className="h-8 w-8" /></div>
+                <div><p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">{t('totFund')}</p><h3 className="text-3xl font-black text-slate-800">{(totalBottlesLifetime * conversionRate).toFixed(2)}</h3></div>
               </div>
-              <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex items-center">
-                <div className="bg-blue-100 p-4 rounded-lg text-blue-600 mr-4"><Trophy className="h-8 w-8" /></div>
+              <div className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow border border-slate-100 p-6 flex items-center group">
+                <div className="bg-blue-50 p-4 rounded-xl text-blue-600 mr-4 group-hover:scale-110 transition-transform"><Trophy className="h-8 w-8" /></div>
                 <div>
-                  <p className="text-sm text-slate-500 font-medium">{t('hero')}</p>
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">{t('hero')}</p>
                   <h3 className="text-lg font-bold text-slate-800 truncate max-w-[170px]">{topResident && getResidentTotal(topResident) > 0 ? topResident.name : '-'}</h3>
-                  <p className="text-xs text-blue-600 font-medium">{topResident && getResidentTotal(topResident) > 0 ? `Total: ${getResidentTotal(topResident)} ${t('bottle')} (${topResident.houseNo})` : ''}</p>
+                  <p className="text-xs text-blue-600 font-semibold">{topResident && getResidentTotal(topResident) > 0 ? `Total: ${getResidentTotal(topResident)} ${t('bottle')} (${topResident.houseNo})` : ''}</p>
                 </div>
               </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Jadual Penduduk */}
-              <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-                <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                  <h2 className="text-xl font-bold text-slate-800 shrink-0">
+              <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div className="p-5 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-50/50">
+                  <h2 className="text-lg font-bold text-slate-800 shrink-0">
                     {userRole === 'resident' ? `${t('secRank')} ${loggedInResident.ramin}` : t('resDb')}
                   </h2>
-                  <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+                  <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
                     {userRole !== 'resident' && (
                       <div className="relative">
-                        <select value={filterRamin} onChange={(e) => setFilterRamin(e.target.value)} className="w-full appearance-none border border-slate-200 rounded-lg pl-3 pr-8 py-2 text-sm focus:ring-emerald-500 bg-slate-50">
+                        <select value={filterRamin} onChange={(e) => setFilterRamin(e.target.value)} className="w-full appearance-none border border-slate-200 rounded-lg pl-3 pr-8 py-2.5 text-sm focus:ring-emerald-500 bg-white shadow-sm outline-none transition-all cursor-pointer">
                           <option value="">{t('allRamin')}</option>
                           {availableRamins.map(r => <option key={r} value={r}>Ramin {r}</option>)}
                         </select>
-                        <Filter className="absolute right-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-slate-400 pointer-events-none" />
+                        <Filter className="absolute right-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
                       </div>
                     )}
                     <div className="relative flex-1 sm:w-64">
-                      <input type="text" placeholder={t('searchPh')} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full border border-slate-200 rounded-lg pl-9 pr-4 py-2 text-sm focus:ring-emerald-500" />
-                      <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                      <input type="text" placeholder={t('searchPh')} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full border border-slate-200 rounded-lg pl-9 pr-4 py-2.5 text-sm focus:ring-emerald-500 shadow-sm outline-none transition-all bg-white" />
+                      <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                     </div>
                   </div>
                 </div>
@@ -737,45 +770,45 @@ export default function App() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="bg-slate-50 text-slate-400 text-xs font-semibold uppercase tracking-wider border-b border-slate-100">
-                        <th className="p-4">{t('thId')}</th>
+                      <tr className="bg-white text-slate-400 text-xs font-bold uppercase tracking-wider border-b border-slate-100">
+                        <th className="p-4 pl-6">{t('thId')}</th>
                         <th className="p-4">{t('thName')}</th>
                         <th className="p-4">{t('thSec')}</th>
                         <th className="p-4">{t('thHouse')}</th>
                         <th className="p-4 text-center">{t('thBal')}</th>
                         <th className="p-4 text-center">{t('thTot')}</th>
-                        {userRole === 'admin' && <th className="p-4 text-center">{t('thAct')}</th>}
+                        {userRole === 'admin' && <th className="p-4 text-center pr-6">{t('thAct')}</th>}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 text-sm">
+                    <tbody className="divide-y divide-slate-50 text-sm">
                       {filteredResidents.map((r) => (
-                        <tr key={r.id} className={`hover:bg-slate-50/80 transition-colors ${r.redeemRequest ? 'bg-amber-50/50' : ''}`}>
-                          <td className="p-4 font-mono font-bold text-slate-600">{r.id}</td>
-                          <td className="p-4 font-medium text-slate-800">
+                        <tr key={r.id} className={`hover:bg-slate-50 transition-colors ${r.redeemRequest ? 'bg-amber-50/30' : ''}`}>
+                          <td className="p-4 pl-6 font-mono font-bold text-slate-600">{r.id}</td>
+                          <td className="p-4 font-semibold text-slate-800">
                             <div className="flex items-center space-x-2">
                               <span>{r.name}</span>
-                              {r.redeemRequest && <span className="bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full font-bold">{t('reqTag')}</span>}
+                              {r.redeemRequest && <span className="bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full font-bold animate-pulse">{t('reqTag')}</span>}
                             </div>
                           </td>
-                          <td className="p-4"><span className="bg-slate-100 text-slate-700 px-2 py-1 rounded text-xs font-semibold">Ramin {r.ramin}</span></td>
+                          <td className="p-4"><span className="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md text-xs font-bold">Ramin {r.ramin}</span></td>
                           <td className="p-4 font-medium text-slate-600">{r.houseNo}</td>
-                          <td className="p-4 text-center font-bold text-blue-600">{r.marks}</td>
+                          <td className="p-4 text-center font-black text-blue-600">{r.marks}</td>
                           <td className="p-4 text-center font-bold text-slate-700">{getResidentTotal(r)}</td>
                           {userRole === 'admin' && (
-                            <td className="p-4">
+                            <td className="p-4 pr-6">
                               <div className="flex items-center justify-center space-x-2">
                                 {r.redeemRequest && (
-                                  <button onClick={() => handleAcceptRedeem(r)} className="p-1 bg-green-500 hover:bg-green-600 text-white rounded shadow-sm" title="Luluskan Wang"><CheckCircle className="w-4 h-4" /></button>
+                                  <button onClick={() => handleAcceptRedeem(r)} className="p-1.5 bg-green-500 hover:bg-green-600 text-white rounded-md shadow-sm transition-transform hover:scale-105" title="Luluskan Wang"><CheckCircle className="w-4 h-4" /></button>
                                 )}
-                                <button onClick={() => { setEditResidentData(r); setShowEditModal(true); }} className="p-1 text-blue-600 hover:bg-blue-50 rounded"><Edit className="w-4 h-4" /></button>
-                                <button onClick={() => handleDeleteResident(r.id, r.name)} className="p-1 text-red-600 hover:bg-red-50 rounded"><Trash className="w-4 h-4" /></button>
+                                <button onClick={() => { setEditResidentData(r); setShowEditModal(true); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-md transition-colors"><Edit className="w-4 h-4" /></button>
+                                <button onClick={() => handleDeleteResident(r.id, r.name)} className="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors"><Trash className="w-4 h-4" /></button>
                               </div>
                             </td>
                           )}
                         </tr>
                       ))}
                       {filteredResidents.length === 0 && (
-                        <tr><td colSpan="7" className="p-8 text-center text-slate-400">{t('noRec')}</td></tr>
+                        <tr><td colSpan="7" className="p-8 text-center text-slate-400 font-medium">{t('noRec')}</td></tr>
                       )}
                     </tbody>
                   </table>
@@ -783,21 +816,24 @@ export default function App() {
               </div>
 
               {/* Log Aktiviti Smart Bin (Masa Nyata) */}
-              <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-                <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center"><Activity className="mr-2 text-emerald-500" /> {t('actTitle')}</h2>
-                <div className="space-y-4">
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col">
+                <h2 className="text-lg font-bold text-slate-800 mb-5 flex items-center"><Activity className="mr-2 text-emerald-500 h-5 w-5" /> {t('actTitle')}</h2>
+                <div className="space-y-4 flex-grow overflow-hidden relative">
                   {recentActivity.map((act) => (
-                    <div key={act.id} className="flex items-start space-x-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
-                      <div className="bg-emerald-500 p-1.5 rounded-md text-white mt-0.5"><Recycle className="w-4 h-4" /></div>
+                    <div key={act.id} className="flex items-start space-x-3 p-3 bg-slate-50/80 rounded-xl border border-slate-100 animate-in slide-in-from-right-4 duration-300">
+                      <div className="bg-emerald-100 p-2 rounded-lg text-emerald-600 mt-0.5"><Recycle className="w-4 h-4" /></div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-slate-700 truncate">{act.name} ({act.residentId})</p>
-                        <p className="text-xs text-slate-500">{t(act.messageKey) || act.messageKey}</p>
-                        <span className="text-[10px] text-slate-400 font-medium block mt-1">{act.time}</span>
+                        <p className="text-sm font-bold text-slate-700 truncate">{act.name} <span className="font-normal text-slate-400 ml-1">({act.residentId})</span></p>
+                        <p className="text-xs text-slate-500 mt-0.5 leading-snug">{t(act.messageKey) || act.messageKey}</p>
+                        <span className="text-[10px] text-slate-400 font-medium block mt-1.5">{act.time}</span>
                       </div>
                     </div>
                   ))}
                   {recentActivity.length === 0 && (
-                    <div className="text-center py-8 text-slate-400 text-sm">{t('waitSig')}</div>
+                    <div className="h-full flex flex-col items-center justify-center text-center py-8">
+                       <div className="w-12 h-12 border-4 border-slate-100 border-t-emerald-200 rounded-full animate-spin mb-3"></div>
+                       <p className="text-slate-400 text-sm font-medium">{t('waitSig')}</p>
+                    </div>
                   )}
                 </div>
               </div>
@@ -809,19 +845,19 @@ export default function App() {
         {/* VIEW 2: STATISTIK ZON RAMIN                */}
         {/* ========================================== */}
         {activeTab === 'statistik' && (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 animate-in fade-in duration-300">
-            <div className="flex justify-between items-center mb-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8 animate-in fade-in duration-500">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
               <div>
                 <h2 className="text-2xl font-bold text-slate-800">{t('statTitle')}</h2>
-                <p className="text-sm text-slate-500">{t('statDesc')}</p>
+                <p className="text-sm text-slate-500 mt-1">{t('statDesc')}</p>
               </div>
-              <select value={statViewType} onChange={(e) => setStatViewType(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-medium bg-slate-50">
+              <select value={statViewType} onChange={(e) => setStatViewType(e.target.value)} className="border border-slate-200 rounded-lg px-4 py-2 text-sm font-bold bg-slate-50 focus:ring-2 focus:ring-emerald-500 outline-none cursor-pointer">
                 <option value="keseluruhan">{t('optAll')}</option>
                 <option value="semasa">{t('optCur')}</option>
               </select>
             </div>
 
-            <div className="space-y-6 max-w-3xl">
+            <div className="space-y-8 max-w-4xl">
               {availableRamins.map(rNum => {
                 const rKey = `Ramin ${rNum}`;
                 const rData = statsByRamin[rKey] || { currentTotal: 0, lifetimeTotal: 0 };
@@ -829,13 +865,16 @@ export default function App() {
                 const grandTotal = statViewType === 'semasa' ? totalBottlesCurrent : totalBottlesLifetime;
                 const percentage = grandTotal > 0 ? Math.round((totalTarget / grandTotal) * 100) : 0;
                 return (
-                  <div key={rNum} className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="font-bold text-slate-700">{rKey}</span>
-                      <span className="text-slate-500 font-bold">{totalTarget} {t('bottle')} ({percentage}%)</span>
+                  <div key={rNum} className="space-y-3">
+                    <div className="flex justify-between text-sm items-end">
+                      <span className="font-extrabold text-slate-700 text-base">{rKey}</span>
+                      <span className="text-slate-500 font-bold bg-slate-100 px-3 py-1 rounded-md">{totalTarget} {t('bottle')} <span className="text-emerald-600 ml-1">({percentage}%)</span></span>
                     </div>
-                    <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
-                      <div className="bg-emerald-500 h-3 rounded-full transition-all duration-1000" style={{ width: `${percentage}%` }}></div>
+                    <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden shadow-inner">
+                      <div className="bg-gradient-to-r from-emerald-400 to-emerald-600 h-full rounded-full transition-all duration-1000 ease-out relative" style={{ width: `${percentage}%` }}>
+                         {/* Shine effect in progress bar */}
+                         <div className="absolute top-0 bottom-0 left-0 right-0 bg-white opacity-20 w-full h-full animate-[pulse_2s_ease-in-out_infinite]"></div>
+                      </div>
                     </div>
                   </div>
                 );
@@ -845,9 +884,18 @@ export default function App() {
         )}
       </main>
 
-      {/* FOOTER HAKCIPTA */}
-      <footer className="w-full bg-slate-800 text-slate-300 text-center py-4 text-sm mt-auto shadow-inner">
-        &copy; {new Date().getFullYear()} {t('footer')}
+      {/* FOOTER MODEN PROFESIONAL DENGAN ANIMASI */}
+      <footer className="w-full bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-slate-300 text-center py-6 mt-auto shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] relative overflow-hidden group">
+        {/* Latar Belakang Hover Efek Halus */}
+        <div className="absolute inset-0 bg-emerald-500/0 group-hover:bg-emerald-500/5 transition-colors duration-700 ease-in-out"></div>
+        
+        <div className="flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-3 relative z-10">
+          <span className="text-sm font-medium tracking-wider text-slate-400 group-hover:text-emerald-400 transition-colors duration-500">
+            &copy; {new Date().getFullYear()} {t('footer')}
+          </span>
+          {/* Ikon Kitar Semula dengan animasi putaran perlahan berterusan */}
+          <Recycle className="h-4 w-4 text-emerald-500/70 group-hover:text-emerald-400 animate-[spin_4s_linear_infinite] transition-colors duration-500" />
+        </div>
       </footer>
     </div>
   );
