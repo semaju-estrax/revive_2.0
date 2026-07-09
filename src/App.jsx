@@ -482,7 +482,7 @@ export default function App() {
           <div className="absolute inset-0 bg-emerald-500 rounded-full blur-3xl opacity-20 animate-pulse w-48 h-48 m-auto"></div>
           {/* Logo baharu dimasukkan di sini */}
           <img 
-            src="Untitled (400 x 400 px).png" 
+            src="revive-logo.png" 
             alt="Revive 2.0 Logo" 
             className="w-64 h-64 object-contain relative z-10 animate-pulse drop-shadow-xl"
           />
@@ -662,7 +662,7 @@ export default function App() {
       <nav className="bg-emerald-600 text-white shadow-md sticky top-0 z-40">
         <div className="max-w-7xl mx-auto flex justify-between items-center p-4">
           <div className="flex items-center space-x-2 cursor-pointer hover:opacity-90 transition-opacity" onClick={() => window.scrollTo(0,0)}>
-            <img src="Untitled (400 x 400 px).png" alt="Revive Logo" className="h-8 w-8 object-contain bg-white rounded-full p-1" />
+            <img src="revive-logo.png" alt="Revive Logo" className="h-8 w-8 object-contain bg-white rounded-full p-1" />
             <span className="text-2xl font-bold tracking-wider hidden sm:block">REVIVE 2.0</span>
           </div>
           
