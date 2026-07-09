@@ -32,13 +32,13 @@ const initialResidents = [
 // ==========================================
 const dict = {
   ms: {
-    loadingText: "Memuatkan sistem pintar REVIVE...",
+    loadingText: "Memuatkan sistem pintar REVIVE 2.0...",
     chooseRole: "Pilih Peranan Anda",
     roleResidentDesc: "Akses profil, lihat rekod, dan tebus ganjaran hijau anda.",
     roleAdminDesc: "Urus komuniti, tetapan sistem, dan pengesahan tebusan.",
     loginAs: "Log Masuk sebagai",
     back: "Kembali",
-    loginRevive: "Log Masuk REVIVE",
+    loginRevive: "Log Masuk REVIVE 2.0",
     resident: "Penduduk",
     admin: "Pengurus Taman",
     resId: "ID Penduduk (Cth: TM001)",
@@ -47,7 +47,7 @@ const dict = {
     defaultPass: "(Lalai: 1234)",
     enter: "Masuk Sistem",
     qrTitle: "Kod QR Kitar Semula",
-    qrDesc: "Tunjukkan kod QR ini ke kamera pengimbas di REVIVE Smart Bin semasa ingin membuang botol.",
+    qrDesc: "Tunjukkan kod QR ini ke kamera pengimbas di REVIVE 2.0 Smart Bin semasa ingin membuang botol.",
     settingTitle: "Tetapan Nilai Botol",
     bottleEq: "1 Botol = RM",
     save: "Simpan",
@@ -79,7 +79,7 @@ const dict = {
     notiTitle: "Notifikasi Pengurusan Komuniti",
     notiMsg1: "Terdapat",
     notiMsg2: "tuntutan ganjaran tunai hijau daripada penduduk yang sedia untuk diproses.",
-    dashTitle: "Papan Pemuka Pintar REVIVE",
+    dashTitle: "Papan Pemuka Pintar REVIVE 2.0",
     susRate: "Kadar Komuniti Lestari:",
     valSetting: "Tetapan Nilai",
     addResBtn: "Tambah Penduduk",
@@ -100,7 +100,7 @@ const dict = {
     thAct: "Tindakan",
     reqTag: "Minta Tebus",
     noRec: "Tiada rekod penduduk ditemui.",
-    actTitle: "Aktiviti REVIVE Smart Bin",
+    actTitle: "Aktiviti REVIVE 2.0 Smart Bin",
     waitSig: "Menunggu isyarat perkakasan IoT luaran...",
     statTitle: "Prestasi Hijau Taman Mawar (Lorong Ramin)",
     statDesc: "Analisis perbandingan jumlah botol yang berjaya dikumpul mengikut zon jalan.",
@@ -118,16 +118,16 @@ const dict = {
     alertAddSuccess: "Penduduk berjaya didaftarkan!",
     alertEditSuccess: "Profil penduduk dikemas kini!",
     alertSetSuccess: "Kadar ganjaran kitar semula dikemas kini!",
-    logMsg: "REVIVE Smart Bin mengesan pembuangan botol."
+    logMsg: "REVIVE 2.0 Smart Bin mengesan pembuangan botol."
   },
   en: {
-    loadingText: "Loading REVIVE smart system...",
+    loadingText: "Loading REVIVE 2.0 smart system...",
     chooseRole: "Choose Your Role",
     roleResidentDesc: "Access profile, view records, and redeem your green rewards.",
     roleAdminDesc: "Manage community, system settings, and redemptions.",
     loginAs: "Login as",
     back: "Back",
-    loginRevive: "REVIVE Login",
+    loginRevive: "REVIVE 2.0 Login",
     resident: "Resident",
     admin: "Park Manager",
     resId: "Resident ID (Ex: TM001)",
@@ -136,7 +136,7 @@ const dict = {
     defaultPass: "(Default: 1234)",
     enter: "Enter System",
     qrTitle: "Recycling QR Code",
-    qrDesc: "Show this QR code to the scanner camera at the REVIVE Smart Bin when disposing of bottles.",
+    qrDesc: "Show this QR code to the scanner camera at the REVIVE 2.0 Smart Bin when disposing of bottles.",
     settingTitle: "Bottle Value Settings",
     bottleEq: "1 Bottle = RM",
     save: "Save",
@@ -168,7 +168,7 @@ const dict = {
     notiTitle: "Community Management Notification",
     notiMsg1: "There are",
     notiMsg2: "green cash reward claims from residents ready to be processed.",
-    dashTitle: "REVIVE Smart Dashboard",
+    dashTitle: "REVIVE 2.0 Smart Dashboard",
     susRate: "Sustainable Community Rate:",
     valSetting: "Value Settings",
     addResBtn: "Add Resident",
@@ -189,7 +189,7 @@ const dict = {
     thAct: "Action",
     reqTag: "Request Redeem",
     noRec: "No resident records found.",
-    actTitle: "REVIVE Smart Bin Activity",
+    actTitle: "REVIVE 2.0 Smart Bin Activity",
     waitSig: "Waiting for external IoT hardware signals...",
     statTitle: "Ramin Sector Green Performance",
     statDesc: "Comparative analysis of the total bottles successfully collected by street zone.",
@@ -207,7 +207,7 @@ const dict = {
     alertAddSuccess: "Resident successfully registered!",
     alertEditSuccess: "Resident profile updated!",
     alertSetSuccess: "Recycling reward rate updated!",
-    logMsg: "REVIVE Smart Bin detected bottle disposal."
+    logMsg: "REVIVE 2.0 Smart Bin detected bottle disposal."
   }
 };
 
@@ -462,8 +462,8 @@ export default function App() {
         totalMarks: currentTotal + 1 
       });
       const alertMsg = lang === 'ms' 
-        ? `[SIMULASI IoT]: QR Code milik ${randomResident.name} (${randomResident.id}) dikesan di REVIVE Smart Bin! +1 Botol direkodkan.`
-        : `[IoT SIMULATION]: QR Code for ${randomResident.name} (${randomResident.id}) detected at REVIVE Smart Bin! +1 Bottle recorded.`;
+        ? `[SIMULASI IoT]: QR Code milik ${randomResident.name} (${randomResident.id}) dikesan di REVIVE 2.0 Smart Bin! +1 Botol direkodkan.`
+        : `[IoT SIMULATION]: QR Code for ${randomResident.name} (${randomResident.id}) detected at REVIVE 2.0 Smart Bin! +1 Bottle recorded.`;
       alert(alertMsg);
     } 
     catch (err) {} finally { setIsScanning(false); }
@@ -657,7 +657,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto flex justify-between items-center p-4">
           <div className="flex items-center space-x-2 cursor-pointer hover:opacity-90 transition-opacity" onClick={() => window.scrollTo(0,0)}>
             <Recycle className="h-8 w-8" />
-            <span className="text-2xl font-bold tracking-wider hidden sm:block">REVIVE</span>
+            <span className="text-2xl font-bold tracking-wider hidden sm:block">REVIVE 2.0</span>
           </div>
           
           <div className="flex space-x-1 bg-emerald-700/50 p-1 rounded-lg">
