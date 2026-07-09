@@ -32,7 +32,7 @@ const initialResidents = [
 // ==========================================
 const dict = {
   ms: {
-    loadingText: "Memuatkan sistem pintar REVIVE 2.0...",
+    loadingText: "Memuatkan sistem pintar REVIVE 2.0",
     chooseRole: "Pilih Peranan Anda",
     roleResidentDesc: "Akses profil, lihat rekod, dan tebus ganjaran hijau anda.",
     roleAdminDesc: "Urus komuniti, tetapan sistem, dan pengesahan tebusan.",
@@ -290,7 +290,7 @@ export default function App() {
 
       setTimeout(() => {
         setIsAppLoading(false);
-      }, 1200);
+      }, 1500); // Sedikit tambahan masa supaya logo nampak jelas
 
     });
     
@@ -477,17 +477,23 @@ export default function App() {
   if (isAppLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center font-sans">
-        <div className="relative flex justify-center items-center">
-          <div className="absolute inset-0 bg-emerald-400 rounded-full blur-2xl opacity-20 animate-pulse w-24 h-24 m-auto"></div>
-          <Recycle className="h-20 w-20 text-emerald-600 animate-[spin_3s_linear_infinite] relative z-10" />
+        <div className="relative flex justify-center items-center mb-2">
+          {/* Efek cahaya latar belakang yang elegan */}
+          <div className="absolute inset-0 bg-emerald-500 rounded-full blur-3xl opacity-20 animate-pulse w-48 h-48 m-auto"></div>
+          {/* Logo baharu dimasukkan di sini */}
+          <img 
+            src="Untitled (400 x 400 px).png" 
+            alt="Revive 2.0 Logo" 
+            className="w-64 h-64 object-contain relative z-10 animate-pulse drop-shadow-xl"
+          />
         </div>
-        <h2 className="mt-8 text-xl font-bold text-slate-800 tracking-wide animate-pulse">
+        <h2 className="mt-2 text-xl font-bold text-slate-800 tracking-wide animate-pulse">
           {t('loadingText')}
         </h2>
-        <div className="flex space-x-1 mt-3">
-          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
-          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+        <div className="flex space-x-1 mt-4">
+          <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+          <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+          <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
         </div>
       </div>
     );
@@ -656,7 +662,7 @@ export default function App() {
       <nav className="bg-emerald-600 text-white shadow-md sticky top-0 z-40">
         <div className="max-w-7xl mx-auto flex justify-between items-center p-4">
           <div className="flex items-center space-x-2 cursor-pointer hover:opacity-90 transition-opacity" onClick={() => window.scrollTo(0,0)}>
-            <Recycle className="h-8 w-8" />
+            <img src="Untitled (400 x 400 px).png" alt="Revive Logo" className="h-8 w-8 object-contain bg-white rounded-full p-1" />
             <span className="text-2xl font-bold tracking-wider hidden sm:block">REVIVE 2.0</span>
           </div>
           
@@ -678,7 +684,6 @@ export default function App() {
                 <button onClick={handleLogout} className="bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg text-sm font-bold transition-all shadow-sm">{t('logout')}</button>
               </div>
             ) : (
-              // Butang ini sekarang akan buka Modal Step 1 (Pilih Peranan)
               <button onClick={handleOpenLogin} className="bg-emerald-800 hover:bg-emerald-900 px-4 py-2 rounded-lg text-sm font-bold flex items-center transition-all shadow-sm"><User className="h-4 w-4 mr-2"/> {t('login')}</button>
             )}
 
